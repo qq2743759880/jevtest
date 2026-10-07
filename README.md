@@ -34,13 +34,19 @@ CLI / 本地 HTTP / MCP STDIO
 
 图中是程序职责关系，不代表所有模块各自部署。单臂 CLI 可以直接运行规则；本地 HTTP／MCP 共用应用服务，可指定同一 SQLite 文件。
 
-具体行为与首次使用流程见下文快速开始。程序没有持续监听服务，当前工作台通过导入 JSON 使用。
+![离线分诊的路由与停止分支](assets/workflow.png)
+
+[在线打开交互流程图](https://qq2743759880.github.io/jevtest/workflow.html) · [下载后本地打开](docs/workflow.html) · [可编辑 JSON](docs/workflow.json) · [流程说明与静态 SVG](docs/workflow.md)
+
+[人工审核生命周期交互图](https://qq2743759880.github.io/jevtest/audit-lifecycle.html) · [本地生命周期 HTML](docs/audit-lifecycle.html) · [生命周期编辑源](docs/audit-lifecycle.json)
+
+交互图支持切换浅色／深色、点击节点查看源码证据、追踪两个节点间的有向路径，以及导出 PNG／SVG。它展示当前离线分诊流程；程序没有持续监听服务，工作台通过导入 JSON 使用。GitHub 文件预览不执行 HTML，请使用在线入口或下载后用浏览器打开。
 
 ## 安装
 
 需要 **Python 3.11 或更高版本**。本次本地核验环境是 Windows、Python 3.14；其他平台未在本次交付验证。依赖安装需要网络。
 
-首次获取：解压配套源码包 `jevtest-0.1.0-source.zip`，进入解压后的项目根目录（含本 README 和 pyproject.toml）。创建虚拟环境：
+首次获取：[下载 v0.1.0 源码包](https://github.com/qq2743759880/jevtest/releases/download/v0.1.0/jevtest-0.1.0-source.zip)，解压后进入解压后的项目根目录（含本 README 和 pyproject.toml）。创建虚拟环境：
 
 ```powershell
 python -m venv .venv
@@ -50,7 +56,7 @@ python -m pip install ".[web,mcp]"
 
 macOS／Linux 激活命令为 `source .venv/bin/activate`；其余命令相同。若 PowerShell 不允许激活，可直接将下文的 `python` 换成 `.venv\Scripts\python.exe`。
 
-也提供 wheel 安装包 `jevtest-0.1.0-py3-none-any.whl`：
+也提供 [wheel 安装包](https://github.com/qq2743759880/jevtest/releases/download/v0.1.0/jevtest-0.1.0-py3-none-any.whl)：下载后在文件所在目录执行
 
 ```powershell
 python -m pip install "./jevtest-0.1.0-py3-none-any.whl[web,mcp]"
@@ -100,7 +106,7 @@ python -m jevtest.http_api --host 127.0.0.1 --port 8765 --store runs/demo.sqlite
 | Live Advisory | 已接线；本次未调用真实 API | 需 key、显式开启、每条确认和人工审核；成本可为 unknown |
 | 持续监听测试失败、完整排障简报 | 设计阶段 | 没有可用的持续监听服务 |
 | 外部 Agent 交接执行、设备自动修复 | 未提供完整闭环 | 本地交接记录不证明外部执行 |
-| H3C 专项效果、企业正式效果 | 未达到验证条件 | 历史专项记录为 10／15 严格唯一根因；正式效果验证待完成 |
+| H3C 专项效果、企业正式效果 | 未达到验证条件 | 截至 2026-09-27 的历史专项语料为 10 个严格唯一根因，最低门槛为 15 个；正式效果验证待完成 |
 
 当前规则基线缺少产品缺陷规则，不能作为通用故障定位器。请先脱敏输入：本地持久化会保存部分失败材料；真实 API 模式会向对应供应商发送 CommonFacts。系统不执行测试、不自动修 Bug，也不连接生产设备操作。
 
@@ -128,4 +134,4 @@ python -m jevtest benchmark runs/synthetic.jsonl --limit 6 --sampling stratified
 
 ## 许可证
 
-[MIT](LICENSE)。本地审核候选包含完整源码和使用说明；远端仓库与 Release 尚未发布。
+[MIT](LICENSE)。完整源码见 [GitHub 仓库](https://github.com/qq2743759880/jevtest)，版本化安装包见 [v0.1.0 Release](https://github.com/qq2743759880/jevtest/releases/tag/v0.1.0)。

@@ -1,0 +1,463 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "JevTest：离线分诊路由",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": "private/archify/workflow.html",
+    "repository": {
+      "url": "https://github.com/qq2743759880/jevtest.git",
+      "revision": "1a892918caad049385ea54fb5b5d62d565ddc468",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "frontend": {
+          "label": "用户界面"
+        },
+        "backend": {
+          "label": "分诊逻辑"
+        },
+        "security": {
+          "label": "校验与策略"
+        },
+        "database": {
+          "label": "持久化"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "输入与本地规则"
+    },
+    {
+      "id": "rule_stop",
+      "label": "输入恢复或规则停止",
+      "variant": "exception"
+    },
+    {
+      "id": "jev",
+      "label": "Jev 离线模拟"
+    },
+    {
+      "id": "jev_stop",
+      "label": "Jev 后停止",
+      "variant": "exception"
+    },
+    {
+      "id": "llm",
+      "label": "LLM 离线模拟"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "input",
+      "lane": "main",
+      "col": 0,
+      "type": "frontend",
+      "label": "失败 JSON",
+      "sublabel": "手工导入完整记录",
+      "sources": [
+        {
+          "path": "src/jevtest/http_api.py",
+          "line": 440
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "validate",
+      "lane": "main",
+      "col": 1,
+      "type": "security",
+      "label": "契约校验",
+      "sublabel": "FailureState",
+      "sources": [
+        {
+          "path": "src/jevtest/models.py",
+          "line": 28
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "rule",
+      "lane": "main",
+      "col": 2,
+      "type": "backend",
+      "label": "规则阶段",
+      "sublabel": "预算内且未过期才调用",
+      "sources": [
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 212
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "rule_gate",
+      "lane": "main",
+      "col": 3,
+      "type": "security",
+      "label": "允许规则命中？",
+      "sublabel": "有效 R1/R2/R3",
+      "sources": [
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 217
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "direct",
+      "lane": "main",
+      "col": 4,
+      "type": "frontend",
+      "label": "规则直接输出",
+      "sublabel": "不请求人工审核",
+      "sources": [
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 227
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "persist_rule",
+      "lane": "main",
+      "col": 5,
+      "type": "database",
+      "label": "保存规则直出",
+      "sublabel": "不请求人工审核",
+      "sources": [
+        {
+          "path": "src/jevtest/app_service.py",
+          "line": 429,
+          "end_line": 434
+        },
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 217,
+          "end_line": 239
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "invalid",
+      "lane": "rule_stop",
+      "col": 1,
+      "type": "security",
+      "label": "补齐输入",
+      "sublabel": "不合法，不分诊",
+      "sources": [
+        {
+          "path": "src/jevtest/http_api.py",
+          "line": 440
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "rule_stop",
+      "lane": "rule_stop",
+      "col": 3,
+      "type": "security",
+      "label": "执行停止",
+      "sublabel": "预算不足 / 期限到达",
+      "sources": [
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 174
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "rule_pending",
+      "lane": "rule_stop",
+      "col": 5,
+      "type": "database",
+      "label": "保存待审建议",
+      "sublabel": "保留结果或 UNKNOWN",
+      "sources": [
+        {
+          "path": "src/jevtest/app_service.py",
+          "line": 418,
+          "end_line": 426
+        },
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 318,
+          "end_line": 341
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "jev",
+      "lane": "jev",
+      "col": 3,
+      "type": "backend",
+      "label": "Jev mock",
+      "sublabel": "按策略模拟判断",
+      "sources": [
+        {
+          "path": "src/jevtest/app_service.py",
+          "line": 246
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "high",
+      "lane": "jev",
+      "col": 4,
+      "type": "security",
+      "label": "可高置信直出？",
+      "sublabel": "有效非 UNKNOWN ≥0.9",
+      "sources": [
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 251
+        },
+        {
+          "path": "src/jevtest/app_service.py",
+          "line": 81,
+          "end_line": 100
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "jev_direct",
+      "lane": "jev",
+      "col": 5,
+      "type": "database",
+      "label": "保存 Jev 直出",
+      "sublabel": "不请求人工审核",
+      "sources": [
+        {
+          "path": "src/jevtest/app_service.py",
+          "line": 429,
+          "end_line": 434
+        },
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 259,
+          "end_line": 276
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "jev_stop",
+      "lane": "jev_stop",
+      "col": 4,
+      "type": "security",
+      "label": "执行停止",
+      "sublabel": "预算不足 / 期限到达",
+      "sources": [
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 174
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "jev_pending",
+      "lane": "jev_stop",
+      "col": 5,
+      "type": "database",
+      "label": "保存待审建议",
+      "sublabel": "保留结果或 UNKNOWN",
+      "sources": [
+        {
+          "path": "src/jevtest/app_service.py",
+          "line": 418,
+          "end_line": 426
+        },
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 318,
+          "end_line": 341
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "llm",
+      "lane": "llm",
+      "col": 4,
+      "type": "backend",
+      "label": "LLM stub",
+      "sublabel": "继续形成建议",
+      "sources": [
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 298
+        }
+      ],
+      "width": 156
+    },
+    {
+      "id": "human",
+      "lane": "llm",
+      "col": 5,
+      "type": "database",
+      "label": "保存待审建议",
+      "sublabel": "有用结果或 UNKNOWN",
+      "sources": [
+        {
+          "path": "src/jevtest/app_service.py",
+          "line": 418,
+          "end_line": 426
+        },
+        {
+          "path": "src/jevtest/cascade.py",
+          "line": 318,
+          "end_line": 341
+        }
+      ],
+      "width": 156
+    }
+  ],
+  "edges": [
+    {
+      "from": "input",
+      "to": "validate",
+      "label": "",
+      "role": "main"
+    },
+    {
+      "from": "validate",
+      "to": "rule",
+      "label": "合法",
+      "role": "main"
+    },
+    {
+      "from": "validate",
+      "to": "invalid",
+      "label": "不合法",
+      "role": "error"
+    },
+    {
+      "from": "invalid",
+      "to": "validate",
+      "label": "补齐再试",
+      "role": "return"
+    },
+    {
+      "from": "rule",
+      "to": "rule_gate",
+      "label": "",
+      "role": "main"
+    },
+    {
+      "from": "rule_gate",
+      "to": "direct",
+      "label": "是",
+      "role": "branch"
+    },
+    {
+      "from": "direct",
+      "to": "persist_rule",
+      "label": "",
+      "role": "branch"
+    },
+    {
+      "from": "rule_gate",
+      "to": "jev",
+      "label": "否且可调用",
+      "role": "main"
+    },
+    {
+      "from": "rule_gate",
+      "to": "rule_stop",
+      "label": "否且预算/期限止",
+      "role": "error"
+    },
+    {
+      "from": "rule_stop",
+      "to": "rule_pending",
+      "label": "需人复核",
+      "role": "branch"
+    },
+    {
+      "from": "jev",
+      "to": "high",
+      "label": "",
+      "role": "main"
+    },
+    {
+      "from": "high",
+      "to": "jev_direct",
+      "label": "是",
+      "role": "branch"
+    },
+    {
+      "from": "high",
+      "to": "llm",
+      "label": "否且可调用",
+      "role": "main"
+    },
+    {
+      "from": "high",
+      "to": "jev_stop",
+      "label": "否且预算/期限止",
+      "role": "error"
+    },
+    {
+      "from": "jev_stop",
+      "to": "jev_pending",
+      "label": "需人复核",
+      "role": "branch"
+    },
+    {
+      "from": "llm",
+      "to": "human",
+      "label": "始终需人复核",
+      "role": "main"
+    }
+  ],
+  "mainPath": [
+    "input",
+    "validate",
+    "rule",
+    "rule_gate",
+    "jev",
+    "high",
+    "llm",
+    "human"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "固定的离线演示策略",
+      "items": [
+        "Rule → Jev mock → LLM stub；不是供应商效果证明。",
+        "可调用：阶段被策略允许且仍有预算、未过期限。",
+        "高阈值 0.9 来自默认 offline-demo 策略。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "错误与结果语义",
+      "items": [
+        "规则/模型失败不满足直出条件，继续允许的后续阶段。",
+        "单阶段失败或预算/超时会标记 degraded。",
+        "完全无结果才用 UNKNOWN / HUMAN_TRIAGE；已有有效结果保留。",
+        "保存待审后进入另一张人工审核生命周期图。",
+        "多个保存节点是不同结果路径，均写入同一应用 SQLite，不是多个数据库。"
+      ]
+    }
+  ]
+}

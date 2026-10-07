@@ -1,0 +1,234 @@
+{
+  "schema_version": 2,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "JevTest：人工审核的版本与状态",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": "private/archify/audit-lifecycle.html",
+    "repository": {
+      "url": "https://github.com/qq2743759880/jevtest.git",
+      "revision": "1a892918caad049385ea54fb5b5d62d565ddc468",
+      "provider": "github",
+      "link_mode": "web"
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "当前版本审核"
+    },
+    {
+      "id": "waiting",
+      "label": "暂缓与修正后的待办"
+    },
+    {
+      "id": "recovery",
+      "label": "旧版本冲突与刷新"
+    },
+    {
+      "id": "terminal",
+      "label": "已审核的旧版本"
+    }
+  ],
+  "states": [
+    {
+      "id": "pending",
+      "type": "waiting",
+      "label": "待审核",
+      "sublabel": "pending · 当前版本",
+      "lane": "main",
+      "col": 0,
+      "sources": [
+        {
+          "path": "src/jevtest/http_api.py",
+          "line": 621,
+          "end_line": 625
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "decision",
+      "label": "审核校验",
+      "sublabel": "版本 / CSRF / 确认",
+      "lane": "main",
+      "col": 1,
+      "sources": [
+        {
+          "path": "src/jevtest/http_api.py",
+          "line": 579,
+          "end_line": 631
+        },
+        {
+          "path": "src/jevtest/http_api.py",
+          "line": 223,
+          "end_line": 237
+        }
+      ]
+    },
+    {
+      "id": "deferred",
+      "type": "waiting",
+      "label": "已暂缓",
+      "sublabel": "deferred · 可再审核",
+      "lane": "waiting",
+      "col": 1,
+      "sources": [
+        {
+          "path": "src/jevtest/local_store.py",
+          "line": 815,
+          "end_line": 819
+        }
+      ]
+    },
+    {
+      "id": "corrected",
+      "type": "neutral",
+      "label": "旧版本已修正",
+      "sublabel": "corrected · 保留历史",
+      "lane": "terminal",
+      "col": 2,
+      "sources": [
+        {
+          "path": "src/jevtest/local_store.py",
+          "line": 815,
+          "end_line": 843
+        }
+      ]
+    },
+    {
+      "id": "newpending",
+      "type": "waiting",
+      "label": "新版本待审核",
+      "sublabel": "新 current · pending",
+      "lane": "waiting",
+      "col": 2,
+      "sources": [
+        {
+          "path": "src/jevtest/local_store.py",
+          "line": 843,
+          "end_line": 868
+        }
+      ]
+    },
+    {
+      "id": "accepted",
+      "type": "success",
+      "label": "已接受",
+      "sublabel": "accepted · 此版本结束",
+      "lane": "terminal",
+      "col": 1,
+      "sources": [
+        {
+          "path": "src/jevtest/local_store.py",
+          "line": 810,
+          "end_line": 839
+        }
+      ]
+    },
+    {
+      "id": "conflict",
+      "type": "failure",
+      "label": "版本冲突",
+      "sublabel": "409 · 不写审核",
+      "lane": "recovery",
+      "col": 1,
+      "sources": [
+        {
+          "path": "src/jevtest/http_api.py",
+          "line": 585,
+          "end_line": 590
+        }
+      ]
+    },
+    {
+      "id": "refresh",
+      "type": "active",
+      "label": "读取当前版本",
+      "sublabel": "刷新后重新决定",
+      "lane": "recovery",
+      "col": 0,
+      "sources": [
+        {
+          "path": "src/jevtest/http_api.py",
+          "line": 465,
+          "end_line": 475
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "pending",
+      "to": "gate",
+      "label": "提交决定"
+    },
+    {
+      "from": "gate",
+      "to": "deferred",
+      "label": "defer 合法"
+    },
+    {
+      "from": "deferred",
+      "to": "gate",
+      "label": "再次决定"
+    },
+    {
+      "from": "gate",
+      "to": "corrected",
+      "label": "correct 合法"
+    },
+    {
+      "from": "corrected",
+      "to": "newpending",
+      "label": "创建新版本"
+    },
+    {
+      "from": "newpending",
+      "to": "gate",
+      "label": "复核新版本"
+    },
+    {
+      "from": "gate",
+      "to": "accepted",
+      "label": "accept 合法"
+    },
+    {
+      "from": "gate",
+      "to": "conflict",
+      "label": "版本过期",
+      "variant": "security"
+    },
+    {
+      "from": "conflict",
+      "to": "refresh",
+      "label": "读取当前"
+    },
+    {
+      "from": "refresh",
+      "to": "pending",
+      "label": "当前仍待审"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "每个合法决定都写入 SQLite",
+      "items": [
+        "仅当前 pending/deferred 版本可提交新决定；旧版 accepted/corrected 不再接受新决定。",
+        "correct 要求原因与修正结果；置信度继承原值，不能重新评估。",
+        "修正后的新版本仍需要人工复核；旧版及审核记录继续保留。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "校验与冲突边界",
+      "items": [
+        "HTTP 写请求需要 CSRF；决定文字必须匹配，输入和确认不合法则拒绝。",
+        "If-Match 过期返回冲突；刷新后先读取当前状态，当前已结束则不能再次提交。",
+        "图中刷新是用户恢复动作，409 响应不会自动重新提交。"
+      ]
+    }
+  ]
+}
