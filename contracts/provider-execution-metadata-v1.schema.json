@@ -1,0 +1,84 @@
+{
+  "additionalProperties": false,
+  "description": "Provider model resolution observed for one application attempt.",
+  "properties": {
+    "schema_version": {
+      "const": "provider-execution-metadata-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "result_version": {
+      "minLength": 1,
+      "title": "Result Version",
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "jev",
+        "llm"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "attempt_index": {
+      "minimum": 1,
+      "title": "Attempt Index",
+      "type": "integer"
+    },
+    "provider_id": {
+      "minLength": 1,
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "requested_model": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Requested Model"
+    },
+    "resolved_model": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resolved Model"
+    },
+    "resolution_source": {
+      "enum": [
+        "provider_response",
+        "not_returned"
+      ],
+      "title": "Resolution Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "request_id",
+    "result_version",
+    "stage",
+    "attempt_index",
+    "provider_id",
+    "resolution_source"
+  ],
+  "title": "ProviderExecutionMetadataV1",
+  "type": "object"
+}

@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jevtest.local/contracts/annotation-schema.json",
+  "title": "AnnotationRecord",
+  "$comment": "本契约属 Dataset Contract Layer（real-data-acquisition-plan v1.1 §7 三件套之一），独立于冻结四件套（failure-state.schema.json / triage-result.schema.json / benchmark.schema.json + rule-baseline-v0.yaml）版本化。当前契约结构版本为 \"2\"（外部契约审阅裁定 CHANGES REQUIRED 修订：DCL-002 sample_id 与 artifact_id 分离、DCL-003 annotator_id 必填、DCL-004 agreement 降级为派生缓存、DCL-006 UNKNOWN→HUMAN_TRIAGE 结构化）。category/action 枚举与 triage-result.schema.json 完全同源（裁定 4），priority 语义按裁定 5；禁止在本契约扩枚举——扩类走裁定 4 扩展流程并先改冻结契约。完整 provenance 治理字段在本层（metadata 契约），FailureState.provenance 冻结不放。",
+  "description": "双标+仲裁的标注记录契约（plan §5）。顶层主键为 sample_id = 一次具体 failure event 的身份；artifact_id = 原始文件身份（SHA256(raw artifact bytes)），仅用于回溯源文件与 metadata provenance 台账 join。同一 artifact 常含多个 failure event → 同一 artifact_id 可对应多条记录（每条一个 sample_id，按 occurrence_index 区分）。流程：A/B 独立双标 → agreement 固化（派生缓存，见该字段描述）→ 分歧必仲裁。语义规则（A≠B、adjudicator 独立、UNKNOWN→HUMAN_TRIAGE、agreement 与原始标签一致）由 JSON Schema 管结构、src/jevtest/dataset_contracts.py 的语义 validator 管内容（JSON Schema 表达不了 A≠B）。",
+  "type": "object",
+  "required": [
+    "sample_id",
+    "artifact_id",
+    "occurrence_index",
+    "case_id",
+    "annotation_schema_version",
+    "guideline_version",
+    "annotation_pair",
+    "agreement",
+    "event_time",
+    "source_group_id"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "sample_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "顶层主键：一次具体 failure event 的身份。公式：sample_id = SHA256(artifact_id + \"\\n\" + case_id + \"\\n\" + canonicalize(event_time) + \"\\n\" + occurrence_index)，各字段以单个换行符 \\n 连接，occurrence_index 取十进制字符串（如 \"0\"、\"1\"）。event_time 先规范化（解析为 aware datetime → 转 UTC → RFC3339 Z 后缀、毫秒固定 3 位）再参与 hash：同一时刻的 \"…Z\" 与 \"…+08:00\" 两种记录法产生同一 sample_id（时区规范化，外部审计裁定）。同 artifact 同 case 的不同次失败 → 不同 sample_id。计算与核对实现：src/jevtest/dataset_contracts.py::compute_sample_id（语义 validator 逐条重算核对，禁止消费方信任手填值）。"
+    },
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "完整 SHA256 hex（小写）。原始 artifact 文件身份：SHA256(原始 artifact 字节，任何转换之前)，= metadata 契约 provenance[].original_hash。仅用于回溯源文件与 dedup——不是样本主键（一份 artifact 可含多个 failure event，对应多条 sample_id 不同的记录；DCL-002）。"
+    },
+    "occurrence_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "该 artifact 内同一 case_id 第几次失败事件，从 0 起。sample_id 公式的组成部分；无同 case 重复失败时为 0。语义：由 raw artifact 中的稳定顺序产生（如日志出现顺序 + case 首次出现序），不由 parser 遍历顺序产生——parser 实现更换不得改变 occurrence_index，否则 sample_id 漂移（外部审计裁定）。"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "测试用例唯一标识，与 FailureState.case_id 一致"
+    },
+    "annotation_schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "本契约版本号（如 \"2\"）。契约结构变更时递增，历史记录不回填。"
+    },
+    "guideline_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "标注时生效的 docs/annotation-guideline-v<N>.md 版本（如 \"2\"）。修一次 UNKNOWN 定义也能区分历史 500 条与新标注（plan §关联键）。"
+    },
+    "annotation_pair": {
+      "type": "object",
+      "description": "双标记录（裁定 6：A/B 独立、互不可见）。annotator_id 必填且语义 validator 强制 annotator_a.annotator_id != annotator_b.annotator_id——键名只标角色不标身份，同一个人不得既当 A 又当 B（DCL-003）。双标独立于键名的隔离由流程保证，身份冲突由 validator 拒绝。",
+      "required": ["annotator_a", "annotator_b"],
+      "additionalProperties": false,
+      "properties": {
+        "annotator_a": { "$ref": "#/$defs/annotator" },
+        "annotator_b": { "$ref": "#/$defs/annotator" }
+      }
+    },
+    "agreement": {
+      "type": "object",
+      "description": "derived cache（DCL-004）：由语义 validator 从 annotator_a/annotator_b 原始标签重算核对，禁止生产者手填不一致值；任何 κ 计算（含 priority 的 linear weighted κ）必须从原始标签重算，禁止消费本缓存——weighted κ 需要双方 marginal 分布，match boolean + delta 承载不了。本三字段仅作入库快速筛查（不一致即仲裁触发器），语义降级为派生缓存。完全一致 = category_match && action_match && priority_delta == 0。",
+      "required": ["category_match", "action_match", "priority_delta"],
+      "additionalProperties": false,
+      "properties": {
+        "category_match": {
+          "type": "boolean",
+          "description": "派生缓存：应为 annotator_a.category == annotator_b.category；validator 重算核对"
+        },
+        "action_match": {
+          "type": "boolean",
+          "description": "派生缓存：应为 annotator_a.action == annotator_b.action；validator 重算核对"
+        },
+        "priority_delta": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "派生缓存：应为 |annotator_a.priority - annotator_b.priority|（非负差值）；validator 重算核对。禁止任何 κ 消费本字段——weighted κ 从原始标签重算"
+        }
+      }
+    },
+    "adjudication": {
+      "type": "object",
+      "description": "仲裁结果。仅分歧样本允许且必填；完全一致样本禁止填写（见 allOf 异或约束）。分歧与仲裁记录禁删除（plan §5）。adjudicator_id 必须独立于 A/B 双方（语义 validator 强制 adjudicator_id != annotator_a.annotator_id 且 != annotator_b.annotator_id，DCL-003）。UNKNOWN→HUMAN_TRIAGE 硬约束见本对象 allOf（DCL-006）。",
+      "required": ["final_category", "final_action", "final_priority", "reason", "adjudicator_id"],
+      "additionalProperties": false,
+      "properties": {
+        "final_category": {
+          "enum": ["PRODUCT_DEFECT", "TEST_SCRIPT", "ENVIRONMENT", "CONFIGURATION", "FLAKY", "UNKNOWN"],
+          "description": "冻结 6 枚举，与 triage-result.schema.json 同源"
+        },
+        "final_action": {
+          "enum": ["RERUN", "COLLECT_MORE_LOGS", "CHECK_ENVIRONMENT", "ASSIGN_TEST_OWNER", "ASSIGN_PRODUCT_DEVELOPER", "HUMAN_TRIAGE"],
+          "description": "冻结 6 枚举，与 triage-result.schema.json 同源；final_category == UNKNOWN 时必须为 HUMAN_TRIAGE（见 allOf）"
+        },
+        "final_priority": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "裁定 5 语义：5 最高 … 1 最低；priority 5 的可观测性政策见 docs/annotation-guideline-v2.md §4"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "仲裁依据摘要"
+        },
+        "adjudicator_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "仲裁人标识；语义 validator 强制其不等于任一标注者 annotator_id（DCL-003）"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "final_category": { "const": "UNKNOWN" } },
+            "required": ["final_category"]
+          },
+          "then": {
+            "properties": { "final_action": { "const": "HUMAN_TRIAGE" } }
+          }
+        }
+      ]
+    },
+    "event_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "失败事件时间，ISO8601。必填（plan §5 split 可执行字段）；temporal split_mode 的分配依据（cutoff 比较）依赖此字段；亦为 sample_id 公式组成部分。"
+    },
+    "source_group_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "group 键，取值规则见 contracts/split-policy.yaml（v1.1）：P1/P2 默认 repo 全名；P0 默认 device 型号+testbed。split_mode=group 时 group 是不可拆分的分配单元（同组禁跨 split）；split_mode=temporal 时允许同 source_group_id 跨时间窗口（按 event_time/cutoff 逐样本分配），group 不再是分配单元。"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": ["agreement"],
+            "properties": { "agreement": { "properties": { "category_match": { "const": false } } } }
+          },
+          {
+            "type": "object",
+            "required": ["agreement"],
+            "properties": { "agreement": { "properties": { "action_match": { "const": false } } } }
+          },
+          {
+            "type": "object",
+            "required": ["agreement"],
+            "properties": { "agreement": { "properties": { "priority_delta": { "minimum": 1 } } } }
+          }
+        ]
+      },
+      "then": { "required": ["adjudication"] },
+      "else": { "not": { "required": ["adjudication"] } }
+    }
+  ],
+  "$defs": {
+    "annotator": {
+      "type": "object",
+      "description": "单标注者判定。字段取值与 TriageResult 三问同构，但由人类标注者独立给出。annotator_id 必填（DCL-003）；UNKNOWN→HUMAN_TRIAGE 硬约束见本对象 allOf（DCL-006）。",
+      "required": ["annotator_id", "category", "action", "priority", "rationale"],
+      "additionalProperties": false,
+      "properties": {
+        "annotator_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "标注者标识（plan §2：annotations.jsonl 含 annotator id）。键名 annotator_a/annotator_b 只标角色，不标身份；同一记录内 A/B 的 annotator_id 必须不同（语义 validator 强制，DCL-003）。"
+        },
+        "category": {
+          "enum": ["PRODUCT_DEFECT", "TEST_SCRIPT", "ENVIRONMENT", "CONFIGURATION", "FLAKY", "UNKNOWN"],
+          "description": "冻结 6 枚举（裁定 4），与 triage-result.schema.json 完全同源；定义与判定规则见 docs/annotation-guideline-v2.md"
+        },
+        "action": {
+          "enum": ["RERUN", "COLLECT_MORE_LOGS", "CHECK_ENVIRONMENT", "ASSIGN_TEST_OWNER", "ASSIGN_PRODUCT_DEVELOPER", "HUMAN_TRIAGE"],
+          "description": "冻结 6 枚举（裁定 4），与 triage-result.schema.json 完全同源；与 category 非一一映射，允许偏离默认映射（plan 修正 4，偏离须写 rationale）；category==UNKNOWN 时 action 必须为 HUMAN_TRIAGE（见 allOf，DCL-006）"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "裁定 5 冻结语义：5=疑似阻断主干回归的产品缺陷 … 1=疑似 flaky/低影响；决定'谁先看到'而非'谁先修'；priority 5 仅当 FailureState 字段内存在可观察 blocker 证据时才可标（docs/annotation-guideline-v2.md §4）"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "非空判定依据，须引用具体证据字段（assertion/syslog_excerpt/env/previous_runs/retry 等）；禁止以模型或规则输出为依据（指南 §0）"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "category": { "const": "UNKNOWN" } },
+            "required": ["category"]
+          },
+          "then": {
+            "properties": { "action": { "const": "HUMAN_TRIAGE" } }
+          }
+        }
+      ]
+    }
+  }
+}

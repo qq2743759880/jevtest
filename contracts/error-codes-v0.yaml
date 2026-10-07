@@ -1,0 +1,75 @@
+# Error Codes v0 — R3_ERROR_CODE 匹配表（Rule baseline v0 引用，rule-baseline-v0.yaml `assertion_matches_table: error_codes_v0`）
+# 版本化：与 rule-baseline-v0.yaml 同纪律——任何修改 = 新版本文件（error-codes-v1.yaml），禁止原地改。
+# 来源纪律（rule-baseline-v0.yaml 裁定 2）：只收可公开验证来源（协议 RFC 行为、IEEE 标准页），
+# source_url 已逐一核验可访问（2026-09-24）。匹配方式 = match_keyword 包含于 assertion（大小写不敏感），按本表声明顺序先命中先用。
+# 优先级语义（PRD 裁定 5）：5=疑似阻断主干回归的产品缺陷 … 1=疑似 flaky。
+entries:
+  - code: DOT11_ASSOC_TIMEOUT
+    match_keyword: "association timeout"
+    category: ENVIRONMENT
+    action: COLLECT_MORE_LOGS
+    priority: 2
+    source_url: https://www.ieee802.org/11/
+
+  - code: DOT11_AUTH_TIMEOUT
+    match_keyword: "authentication timeout"
+    category: ENVIRONMENT
+    action: COLLECT_MORE_LOGS
+    priority: 2
+    source_url: https://www.ieee802.org/11/
+
+  - code: DHCP_LEASE_FAILURE
+    match_keyword: "dhcp"
+    category: ENVIRONMENT
+    action: CHECK_ENVIRONMENT
+    priority: 3
+    source_url: https://www.rfc-editor.org/rfc/rfc2131.txt
+
+  - code: AAA_ACCESS_REJECT
+    match_keyword: "authentication failed"
+    category: CONFIGURATION
+    action: ASSIGN_TEST_OWNER
+    priority: 3
+    source_url: https://www.rfc-editor.org/rfc/rfc2865.txt
+
+  - code: POE_POWER_FAULT
+    match_keyword: "poe"
+    category: ENVIRONMENT
+    action: CHECK_ENVIRONMENT
+    priority: 3
+    source_url: https://www.ieee802.org/3/af/
+
+  - code: IF_LINK_DOWN
+    match_keyword: "link down"
+    category: ENVIRONMENT
+    action: CHECK_ENVIRONMENT
+    priority: 2
+    source_url: https://www.rfc-editor.org/rfc/rfc2863.txt
+
+  - code: ICMP_DEST_UNREACHABLE
+    match_keyword: "destination unreachable"
+    category: ENVIRONMENT
+    action: CHECK_ENVIRONMENT
+    priority: 2
+    source_url: https://www.rfc-editor.org/rfc/rfc792
+
+  - code: NTP_SYNC_FAILURE
+    match_keyword: "ntp"
+    category: ENVIRONMENT
+    action: CHECK_ENVIRONMENT
+    priority: 3
+    source_url: https://www.rfc-editor.org/rfc/rfc5905.txt
+
+  - code: TLS_HANDSHAKE_FAILURE
+    match_keyword: "handshake failure"
+    category: ENVIRONMENT
+    action: COLLECT_MORE_LOGS
+    priority: 2
+    source_url: https://www.rfc-editor.org/rfc/rfc8446
+
+  - code: NETCONF_COMMIT_FAILED
+    match_keyword: "commit failed"
+    category: CONFIGURATION
+    action: ASSIGN_TEST_OWNER
+    priority: 3
+    source_url: https://www.rfc-editor.org/rfc/rfc6241.txt

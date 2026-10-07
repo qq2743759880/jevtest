@@ -1,0 +1,19 @@
+{
+  "case_id": "OWNER-EXP-D-PARSER-001",
+  "result": "FAIL",
+  "previous_runs": ["PASS", "PASS"],
+  "device": "SYNTH-AP-04",
+  "sw_version": "synthetic-build-1",
+  "assertion": "Expected JSON field result but parser received a trailing comma",
+  "syslog_excerpt": "owner_experience_test synthetic excerpt: JSONDecodeError at end of input; no real test log.",
+  "env": {
+    "AP_reachable": true,
+    "AC_reachable": true
+  },
+  "retry": "failed",
+  "provenance": {
+    "dataset_version": "owner-experience-test-v1.1",
+    "synthetic": true,
+    "source": "owner_experience_test"
+  }
+}

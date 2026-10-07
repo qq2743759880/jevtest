@@ -1,0 +1,15 @@
+{
+  "dataset_version": "synthetic-v0",
+  "seed": 20260924,
+  "line_count": 200,
+  "category_distribution": {
+    "PRODUCT_DEFECT": 30,
+    "TEST_SCRIPT": 30,
+    "ENVIRONMENT": 30,
+    "CONFIGURATION": 30,
+    "FLAKY": 30,
+    "UNKNOWN": 50
+  },
+  "generated_at": "2026-09-24T09:44:53+00:00",
+  "generator_version": "0.1.0"
+}

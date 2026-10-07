@@ -1,0 +1,84 @@
+{
+  "additionalProperties": false,
+  "description": "Inference view shared by Rule/Jev/LLM; omits dataset and sample labels.",
+  "properties": {
+    "schema_version": {
+      "const": "common-facts-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "result": {
+      "const": "FAIL",
+      "title": "Result",
+      "type": "string"
+    },
+    "previous_runs": {
+      "items": {
+        "enum": [
+          "PASS",
+          "FAIL"
+        ],
+        "type": "string"
+      },
+      "maxItems": 10,
+      "title": "Previous Runs",
+      "type": "array"
+    },
+    "device": {
+      "minLength": 1,
+      "title": "Device",
+      "type": "string"
+    },
+    "sw_version": {
+      "minLength": 1,
+      "title": "Sw Version",
+      "type": "string"
+    },
+    "assertion": {
+      "minLength": 1,
+      "title": "Assertion",
+      "type": "string"
+    },
+    "syslog_excerpt": {
+      "maxLength": 8192,
+      "title": "Syslog Excerpt",
+      "type": "string"
+    },
+    "env": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "title": "Env",
+      "type": "object"
+    },
+    "retry": {
+      "enum": [
+        "not_executed",
+        "passed",
+        "failed"
+      ],
+      "title": "Retry",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "result",
+    "previous_runs",
+    "device",
+    "sw_version",
+    "assertion",
+    "syslog_excerpt",
+    "env",
+    "retry"
+  ],
+  "title": "CommonFactsV1",
+  "type": "object"
+}

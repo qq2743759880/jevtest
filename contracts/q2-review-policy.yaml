@@ -1,0 +1,99 @@
+# =====================================================================
+# Q2 Review Policy v1 — nornir 类 Q2 过密 artifact 人工复核的选样规则
+# （外审六件收口 #2：把 2026-09-26 实际执行的人工复核判据正式化为
+#   机器可读契约，并对既有 24 条 approve 追溯重放）。
+#
+# > 修订注记（2026-09-26）：本文件已被 contracts/q2-review-policy-v2.yaml
+# > 就 batch purpose 语义修订——v2 按批次用途（annotation_protocol_pilot
+# > vs effectiveness_dataset）区分 signature 去重语义：正式效果集维持
+# > 本文件 R1 strict unique；协议 pilot 批次允许 controlled repeat
+# > （repeat_signature/signature_id 打标 + 用途禁令）。本文件其余内容
+# > （signature 定义、R2–R4、事件纪律、追溯重放记录）继续有效。
+#
+# 语义来源：contracts/admission-policy.yaml v1 的 Q2 判据（artifact
+# 过密 → quarantine → 人工复核）只规定"需要人工复核"，未规定复核时
+# **选哪些样本放行**。本文件补齐该缺口：Q2 复核的 approve 判据、
+# signature 去重规则、每 artifact 放行上限与版本化纪律。
+#
+# 版本化纪律：本文件 v1 自落款起生效，并对落款前已完成人工复核的
+# Q2 artifact 追溯适用（见 §4 retroactive replay）；此后任何修改 =
+# 新文件 q2-review-policy-v2.yaml（重走审阅 gate）。
+# =====================================================================
+q2_review_policy_version: "1"
+
+# ---------------------------------------------------------------------
+# 1. signature 定义（root-cause/evidence signature）
+#    signature = assertion 的错误类型 + 关键参数：
+#      - 异常类名（如 ModuleNotFoundError / ssl.SSLError /
+#        urllib3.exceptions.LocationParseError / pytest 的
+#        "Failed: DID NOT WARN"）；
+#      - 关键参数（如缺失模块名 'pkg_resources'、warning 类型
+#        ConflictingConfigurationWarning、解析失败的目标 URL）。
+#    不含 case_id / occurrence_index / event_time——同一 root cause
+#    在同 artifact 内打到多个 test case 仍是同一 signature。
+#    特例：traceback 汇聚类（如 NornirSubTaskError）以子任务失败点
+#    为关键参数，与叶子异常类型不同 signature。
+# ---------------------------------------------------------------------
+signature_definition:
+  error_type: "assertion 首个异常类名 / pytest 失败短语（DID NOT WARN / Emitted warnings 等）"
+  key_params: "异常消息中的可变参数（缺失模块名、warning 类型、目标 URL、子任务失败点）"
+  excluded: "case_id / occurrence_index / event_time 不参与 signature（同 root cause 跨 case 是重复，不是独立失败）"
+
+# ---------------------------------------------------------------------
+# 2. 复核选样规则（Q2 过密 artifact 的人工复核按此执行）
+# ---------------------------------------------------------------------
+selection_rules:
+  - id: R1
+    rule: >-
+      signature 去重：同 signature 在最终集内只保留首见一条（首见 =
+      lineage quarantine_reviewed:approve 事件时间序最早），其余同
+      signature 样本追加 disposition=reject 事件（reason 见 §5）。
+      去重不只按 case_id——case_id 不同但 signature 相同仍视为重复。
+  - id: R2
+    rule: >-
+      每 artifact 放行上限：单 artifact 经 Q2 复核放行的样本数在
+      Pilot-0 内不超过 15（过密 artifact 不允许主导单一批次）。
+  - id: R3
+    rule: >-
+      approve 判据（逐样本）：该样本具有独立 root-cause signature
+      （R1 去重后仍未被占据）且 assertion 可定位（failure_state.assertion
+      非空、非占位串 'assertion not captured'）。二者同时满足才 approve。
+  - id: R4
+    rule: >-
+      追溯适用：对已 approve 的样本按 R1–R3 重放；重放产生的降级以
+      追加 quarantine_reviewed disposition=reject 事件落账（append-only，
+      禁止改写既有事件）。重放后最终集不足批次规模时，从其他 Q2
+      artifact 的 approve 池按 signature 多样性补足（同 signature 已被
+      占据的池内样本不得入选），并同样落 reject 事件淘汰未入选者。
+
+# ---------------------------------------------------------------------
+# 3. 事件纪律
+# ---------------------------------------------------------------------
+event_discipline:
+  - "重放只追加事件：既有 quarantine_reviewed(approve) 历史行原样保留"
+  - "降级事件的 reason_code 固定 'q2_review_policy_v1:root_cause_duplicate'，detail.policy 携带本文件名与版本"
+  - "重放后必须保证最终集内每个样本的 lineage latest disposition == approve（validate_pilot_bundle / build_lineage_dispositions 强制）"
+
+# ---------------------------------------------------------------------
+# 4. 追溯重放记录（2026-09-26 实际执行）
+# ---------------------------------------------------------------------
+retroactive_replay:
+  date: "2026-09-26"
+  scope: "pilot0 批次 24 条既有 approve（1b0fea44 13 条 + b03d022c 11 条）"
+  result:
+    kept_first_seen:
+      - signature: "ModuleNotFoundError:pkg_resources"
+        kept_sample: "190e3579be21d11a3c776cbf46051700c0bc5896dc6815e526f25b12babf087b"
+      - signature: "DID_NOT_WARN:ConflictingConfigurationWarning"
+        kept_sample: "370028c08790b233ee04e0bf02dcd2ac99277be775031548b473f9b1662066dc"
+      - signature: "EMITTED_EMPTY_WARNINGS"
+        kept_sample: "06fb00b69a76d120fa294f949da98e2b0701331cce079a3774032ead2cb90c1a"
+      - signature: "NornirSubTaskError@failing_task_simple"
+        kept_sample: "99214047a6509f81444c2118b686886d4e4b263dcd84afed1935026d45ed6b38"
+    rejected_duplicates: 10   # 6 × MNFE（1b0fea44）+ 4 × DNW（3×1b0fea44 + 1×b03d022c）
+    backfilled_from_b03d022c: 10  # approve 池 11 条中 10 条未入选 blind 集者随重放保留为放行（各 signature 已被占据，作为 R4 补足入库）
+  note: >-
+    重放后 pilot0 最终 30 条 = 16 条非 nornir 样本 + 4 条 1b0fea44 首见 +
+    10 条 b03d022c 补足；nornir 全部 60 条 Q2 拆样中 signature 独立的
+    root cause 仅 4 个（MNFE:pkg_resources / DNW:ConflictingConfigurationWarning /
+    EMITTED_EMPTY_WARNINGS / NornirSubTaskError）。

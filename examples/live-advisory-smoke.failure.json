@@ -1,0 +1,19 @@
+{
+  "case_id": "SYN-LIVE-ADVISORY-R4-001",
+  "result": "FAIL",
+  "previous_runs": ["PASS", "PASS", "PASS"],
+  "device": "AP-SYNTH-01",
+  "sw_version": "V0.0-SYNTH",
+  "assertion": "association state differs from expected",
+  "syslog_excerpt": "synthetic fixture; no real device log",
+  "env": {
+    "AC_reachable": true,
+    "AP_reachable": true
+  },
+  "retry": "failed",
+  "provenance": {
+    "dataset_version": "live-advisory-smoke-v1",
+    "synthetic": true,
+    "source": "synthetic acceptance fixture"
+  }
+}

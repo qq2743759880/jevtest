@@ -1,0 +1,19 @@
+schema_version: routing-policy-v1
+policy_id: offline-demo
+version: "1"
+execution_mode: offline
+run_purpose: demo
+basis: demo
+allowed_stages:
+  - rule
+  - jev
+  - llm
+  - human
+direct_output_rule_ids:
+  - R1_FLAKY
+  - R2_ENVIRONMENT
+  - R3_ERROR_CODE
+jev_high_threshold: 0.9
+jev_escalate_threshold: 0.7
+max_total_attempts: 6
+deadline_ms: 120000

@@ -1,0 +1,19 @@
+{
+  "case_id": "OWNER-EXP-B-FLAKY-001",
+  "result": "FAIL",
+  "previous_runs": ["PASS", "FAIL", "PASS"],
+  "device": "SYNTH-AP-02",
+  "sw_version": "synthetic-build-1",
+  "assertion": "Association timed out on the final run after intermittent success",
+  "syslog_excerpt": "owner_experience_test synthetic excerpt: association timeout on final run; no real device log.",
+  "env": {
+    "AP_reachable": true,
+    "AC_reachable": true
+  },
+  "retry": "passed",
+  "provenance": {
+    "dataset_version": "owner-experience-test-v1.1",
+    "synthetic": true,
+    "source": "owner_experience_test"
+  }
+}

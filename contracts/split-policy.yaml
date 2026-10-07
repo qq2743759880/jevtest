@@ -1,0 +1,139 @@
+# =====================================================================
+# Split Policy v1.1 — Dataset Contract Layer 三件套之一
+# 本契约属 Dataset Contract Layer，独立于冻结四件套
+# （failure-state.schema.json / triage-result.schema.json /
+#   benchmark.schema.json + rule-baseline-v0.yaml）版本化。
+#
+# ✅ 冻结状态：owner FINAL SIGN-OFF 已签收（2026-09-25）。本文件（v1.1）
+#   自 T10-A collector 首次真实采集起视为冻结；此后任何修改 =
+#   新文件 split-policy-v2.yaml（重走审阅 gate）。
+#
+# v1.1 修订说明（2026-09-25，外部契约审阅裁定 DCL-005）：
+#   v1 同时声明 "unit=group 且同 group 禁跨 split" 与
+#   "unique_source_groups<2 时降级为 temporal holdout" —— 二者矛盾
+#   （temporal 必然让同 group 跨 split）。v1.1 重构为两个互斥的
+#   split_mode（group | temporal），删除一切 "降级/补丁" 类措辞：
+#   temporal 是独立分配模式，不是 group 模式失败后的补救；需 temporal
+#   验证应在分配前显式选定 temporal 模式。
+#
+# v1.1 修订说明二（2026-09-24/25，owner 口头确认方向 + 语义门审计）：
+#   research_question / grouping_strategy 从 UNSET 落定为
+#   same_project_future_failure（同项目内未来 failure 泛化——owner
+#   2026-09-24 决定）；P1/P2 分组键取 test/issue family（test file 或
+#   issue thread），P0 取 device 型号+testbed family。
+#   allocation_seed 从顶层 null 移至 allocation_rules.allocation_seed
+#   固定值 20260924（分配日期，Python random.Random(seed)）；metadata
+#   的 allocation_seed 字段仍须记录实际使用值（复现要求不变）。
+#
+# 版本化纪律说明：v1 从未冻结生效（research_question=UNSET 即未开始
+# 任何采集动作，无历史记录依赖其结构），故本次按"原地修订 + version
+# 递增"处理（v1 → 1.1 并注明修订原因）。本文件一经冻结（首次真实
+# 采集开始）后，任何修改 = 新文件 split-policy-v2.yaml，冻结版禁止
+# 原地改（与 rule-baseline-v0.yaml 同纪律）。
+# 语义来源：real-data-acquisition-plan v1.1 §5（split 可执行字段）
+# 与 §Split feasibility gate（owner 指令 6）。机器可读；违反本策略的
+# split 分配不得进入 metadata.json。
+# =====================================================================
+split_policy_version: "1.1"
+
+# ---------------------------------------------------------------------
+# 0. 研究问题先行（plan §Split feasibility gate：采集前必须先选定要回答的问题）
+#    grouping strategy 与实验问题绑定，不永久钉死 repo=group：
+#      cross_project_generalization → repository 分组（跨项目泛化）
+#      same_project_future_failure → test/issue family 分组（同项目未来失败可泛化）
+#    两字段均为 UNSET 时禁止开始任何采集动作。
+# ---------------------------------------------------------------------
+research_question: same_project_future_failure
+# owner 2026-09-24 决定：回答"同项目内未来 failure 是否可泛化"。
+# 分组键随之绑定为 test/issue family（见 §1 与 grouping_strategy），
+# 禁止采集中途更换研究问题或组键。
+grouping_strategy: test_issue_family
+# P1/P2：test/issue family（同一 test file 或同一 issue thread 归同组）；
+# P0：device 型号 + testbed family。与 research_question 绑定。
+
+# ---------------------------------------------------------------------
+# 1. source_group_id 取值规则（按 tier，plan §5；research_question 已落定
+#    same_project_future_failure → test/issue family 键生效）
+#    group 模式下 source_group_id 是 split 分配的最小整体单元；
+#    temporal 模式下它仅是溯源/分组键，不再是分配单元（见 §2）。
+# ---------------------------------------------------------------------
+source_group_id_rules:
+  P1_P2: "test/issue family：同一测试文件家族（test file）或同一 issue 讨论线程（issue thread）归同组（owner 2026-09-24 确认的 same_project_future_failure 分组键）"
+  P0: "device 型号 + testbed family（若企业日志含 testbed 信息；避免同型号全部压到一侧）"
+  same_test_case: "同一 test case 的多次失败归同组（跨批次采集亦然；family 键的特例与下限）"
+  alternative: >-
+    若未来研究问题改回 cross_project_generalization，group 键改用
+    repo 全名；该选择必须在采集前固化进本文件（作为新版本）再开始
+    采集，禁止采集中途换组键。
+
+# ---------------------------------------------------------------------
+# 2. 分配模式（DCL-005：两模式互斥，分配前选定其一，禁止混合）
+#    选定结果写入 metadata.json 的 split_mode。
+# ---------------------------------------------------------------------
+split_modes:
+  group:
+    unit: group                   # group 是不可拆分的分配单元；同组跨 split = 禁止
+    method: seeded_random         # 组→split 的随机分配必须用 seeded RNG
+    rng: "Python random.Random(seed)，seed 为固定整数（metadata.allocation_seed）"
+    holdout_basis: group_level    # unique_source_groups >= 2 时可声称 group-level holdout
+    record: "实际 group→split 分配逐组写入 metadata.json 的 split_assignment（每组一条），禁删除"
+  temporal:
+    unit: sample                  # 逐样本分配；允许同 source_group_id 跨时间窗口（跨 split）
+    method: time_window_cutoff    # 分配依据 = event_time 对 temporal_cutoff 的比较
+    rule: >-
+      event_time <= temporal_cutoff 的样本进 calibration；
+      event_time > temporal_cutoff 的样本进 holdout（holdout = 最晚时间窗）。
+      同一 firmware 版本的失败允许跨 split（plan §5）。
+    holdout_basis: temporal
+    record: >-
+      逐样本写入 metadata.json 的 split_assignment（sample_id + source_group_id +
+      split，同 source_group_id 可出现在两个 split），并记录 temporal_cutoff，禁删除
+
+mode_selection:
+  - "分配前显式选定 split_mode 并记录进 metadata.json（group | temporal）"
+  - "temporal 不是降级补丁：选定 temporal 的合法理由是分组不可行（采集前已知）或需要时间演化验证，而不是 group 分配失败后的现场补救"
+  - "禁止同一数据集内混用两模式；禁止采集中途更换模式"
+
+# split 取值枚举：与 dataset-metadata.schema.json 的 split 字段枚举一致
+split_values: [calibration, holdout]
+
+# ---------------------------------------------------------------------
+# 3. 分配通用规则（两种模式共用）
+# ---------------------------------------------------------------------
+allocation_rules:
+  allocation_seed:
+    value: 20260924               # 固定 seed（分配落定日，Python random.Random(seed) 语义）
+    required: true                # 分配时必须使用本 seed 并写入 metadata.allocation_seed（复现要求；禁止 null）
+    rng: "Python random.Random(seed)"
+  record: "实际分配（组级或样本级）写入 metadata.json 的 split_assignment，禁删除"
+  semantic_gate: "sum(split)==total、groups_per_split==unique_source_groups 等计数一致性由 src/jevtest/dataset_contracts.py::validate_metadata 强制；派生统计与真实 annotations/split_assignment 的一致性由 validate_dataset_bundle 强制（collector 前硬门）"
+
+# ---------------------------------------------------------------------
+# 4. Feasibility gate（owner 指令 6；只约束 group 模式的 holdout 声明）
+# ---------------------------------------------------------------------
+feasibility_gate:
+  report_required:                 # 数据集定稿时必须报告（metadata.counts）
+    - unique_source_groups
+    - groups_per_split
+  group_level_holdout_minimum_groups: 2
+  rule: >-
+    split_mode=group 且 unique_source_groups < 2 时禁止声称 group-level
+    holdout（metadata.holdout_basis 必须为 split_not_feasible）。
+    本 gate 不产生 "降级 temporal" 动作：若需 temporal 验证，回到 §2
+    mode_selection 在分配前显式选定 temporal 模式；否则如实报告
+    split_not_feasible。
+
+# ---------------------------------------------------------------------
+# 5. 版本化
+# ---------------------------------------------------------------------
+versioning:
+  rule: >-
+    v1 从未冻结（research_question=UNSET 未生效），故 v1→v1.1 为原地
+    修订；本文件自首次真实采集开始视为冻结，冻结后任何修改 = 新文件
+    split-policy-v2.yaml，冻结版永不原地修改。
+  binding:
+    - "metadata.json 的 split_policy_version 必须等于实际生效文件的 split_policy_version"
+    - "metadata.json 的 research_question / grouping_strategy 必须等于本文件对应字段
+      （DCL v1.1 收口条件 2，2026-09-25：研究问题是数据集事实的一部分，
+      由 src/jevtest/dataset_contracts.py::validate_dataset_bundle 比对强制，
+      两处漂移即硬违规）"

@@ -1,0 +1,19 @@
+{
+  "case_id": "OWNER-EXP-E-DEFECT-LIKE-001",
+  "result": "FAIL",
+  "previous_runs": ["FAIL", "FAIL"],
+  "device": "SYNTH-AP-05",
+  "sw_version": "synthetic-build-1",
+  "assertion": "Management API reports connected while the synthetic client remains disconnected",
+  "syslog_excerpt": "owner_experience_test synthetic excerpt: reported_state=connected observed_state=disconnected; no real product log.",
+  "env": {
+    "AP_reachable": true,
+    "AC_reachable": true
+  },
+  "retry": "failed",
+  "provenance": {
+    "dataset_version": "owner-experience-test-v1.1",
+    "synthetic": true,
+    "source": "owner_experience_test"
+  }
+}

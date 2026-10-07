@@ -1,0 +1,29 @@
+{
+  "planId": "jevtest-m1m3",
+  "contractMode": "frozen",
+  "frozenAt": "2026-09-24",
+  "ownerReview": { "status": "APPROVED", "reviewer": "owner", "reviewedAt": "2026-09-24", "verdict": "四项全 PASS；附带增强项 E_PARSE_FAILURE→error_samples.jsonl 已在冻结前并入契约本体" },
+  "note": "owner 逐条审阅接口/错误码并回复『契约冻结』后将 frozenAt 与 ownerReview.status 置位；执行期篡改任何哈希 → exit 4。",
+  "artifacts": [
+    { "path": "contracts/failure-state.schema.json", "sha256": "633204cd945381ac5c08fcd968f5a4dda1cf0eeb72195fa31cd03675e932dd7e", "consumedBy": ["T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T11"] },
+    { "path": "contracts/triage-result.schema.json", "sha256": "b03cf2cba800243d478d04f14ea84dfdfc052e25f07c001564ed87762e10ab52", "consumedBy": ["T02", "T03", "T05", "T06", "T07", "T08", "T09", "T11", "T12"] },
+    { "path": "contracts/benchmark.schema.json", "sha256": "6ca06425df545d94841831013fe002854ab74cca0e97dc4889a7eb04cf1677ac", "consumedBy": ["T08", "T09", "T12"] },
+    { "path": "contracts/rule-baseline-v0.yaml", "sha256": "91cec9525fd34c53c9553235d2e7296b683623da0a5955788d702935d6f58121", "consumedBy": ["T03", "T04", "T09"] }
+  ],
+  "interfaceList": [
+    { "id": "I-01", "signature": "Provider.predict(FailureState) -> TriageResult", "consumers": ["T03", "T05", "T06", "T07", "T11"], "note": "四臂统一接口（PRD §5.1 条款 2）" },
+    { "id": "I-02", "signature": "jevtest run <failure.json>", "consumers": ["T12"], "note": "单条模式，stdout 输出 TriageResult 人可读格式" },
+    { "id": "I-03", "signature": "jevtest benchmark <dataset.jsonl>", "consumers": ["T09", "T12"], "note": "批量模式，输出 benchmark.schema 实例 + per_sample JSONL" },
+    { "id": "I-04", "signature": "jevtest synthgen --seed N --out <path>", "consumers": ["T04"], "note": "同 seed 字节级可复现" }
+  ],
+  "errorCodes": [
+    { "code": "E_SCHEMA_INVALID_INPUT", "exit": 2, "meaning": "输入未过 FailureState schema 校验；信息含违规字段路径" },
+    { "code": "E_CONTRACT_DRIFT", "exit": 3, "meaning": "pydantic 导出 schema 与 contracts/ 哈希不一致（单一事实源检查失败）" },
+    { "code": "E_PROVIDER_AUTH", "exit": 4, "meaning": "TYPESAFE_API_KEY 缺失或无效" },
+    { "code": "E_PROVIDER_RATE_LIMIT", "exit": 5, "meaning": "限流；按 RetryPolicy 重试后仍失败，样本落 errors.jsonl" },
+    { "code": "E_PROVIDER_TIMEOUT", "exit": 5, "meaning": "超时；同上" },
+    { "code": "E_PARSE_FAILURE", "exit": 0, "meaning": "臂输出无法解析为 TriageResult——不中断批次，该样本计 UNKNOWN、同步落 error_samples.jsonl（case_id/arm/raw_output/timestamp）并在计量层标记（裁定 6 兜底语义；owner 审阅增强项）" },
+    { "code": "E_THRESHOLD_MISSING", "exit": 6, "meaning": "Cascade 阈值配置缺失——拒绝启动，禁止静默默认值（§5.1 条款 4）" }
+  ],
+  "changePolicy": "冻结后执行期禁止改契约；要改走变更单（contracts/CHANGELOG.md）+ 受影响下游标『待重验』+ 重走审阅 gate。"
+}

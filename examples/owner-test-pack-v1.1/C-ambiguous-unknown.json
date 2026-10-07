@@ -1,0 +1,19 @@
+{
+  "case_id": "OWNER-EXP-C-UNKNOWN-001",
+  "result": "FAIL",
+  "previous_runs": ["PASS", "PASS", "PASS"],
+  "device": "SYNTH-AP-03",
+  "sw_version": "synthetic-build-1",
+  "assertion": "Association state differs from expected",
+  "syslog_excerpt": "owner_experience_test synthetic excerpt; no timestamped event sequence and no real device log.",
+  "env": {
+    "AP_reachable": true,
+    "AC_reachable": true
+  },
+  "retry": "failed",
+  "provenance": {
+    "dataset_version": "owner-experience-test-v1.1",
+    "synthetic": true,
+    "source": "owner_experience_test"
+  }
+}

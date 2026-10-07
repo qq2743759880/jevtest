@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jevtest.local/contracts/benchmark.schema.json",
+  "title": "BenchmarkExperiment",
+  "description": "四臂竞争实验的报告契约（PRD §5.1 条款 + Risk-001 最小 schema）。",
+  "type": "object",
+  "required": ["experiment_id", "dataset_version", "dataset_kind", "rule_version", "arms", "metrics", "declaration"],
+  "properties": {
+    "experiment_id": { "type": "string", "minLength": 1 },
+    "dataset_version": { "type": "string", "minLength": 1 },
+    "dataset_kind": { "enum": ["synthetic", "real", "mixed"] },
+    "rule_version": { "type": "string", "minLength": 1, "description": "Rule 臂基线版本，如 \"0\"" },
+    "arms": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["rule", "jev", "llm", "cascade"] },
+      "description": "实际参与的臂；缺席臂必须在 absent_arms 说明原因"
+    },
+    "absent_arms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["arm", "reason"],
+        "properties": { "arm": { "enum": ["rule", "jev", "llm", "cascade"] }, "reason": { "type": "string" } }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "逐臂指标",
+      "patternProperties": {
+        "^(rule|jev|llm|cascade)$": {
+          "type": "object",
+          "required": ["accuracy", "cost", "latency_p50_ms", "latency_p95_ms", "routing_ratio"],
+          "properties": {
+            "accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+            "cost": { "type": "number", "minimum": 0, "description": "整批总费用（货币单位在 cost_currency 声明）；mock 臂为 0" },
+            "cost_currency": { "type": "string" },
+            "latency_p50_ms": { "type": "number", "minimum": 0 },
+            "latency_p95_ms": { "type": "number", "minimum": 0 },
+            "routing_ratio": {
+              "type": "object",
+              "description": "分流比例，键为 rule/jev/llm/human，值和为 1",
+              "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+            },
+            "sample_count": { "type": "integer", "minimum": 1 }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "per_sample_path": { "type": "string", "description": "逐样本 JSONL 路径，行格式 = TriageResult + arm + case_id + latency_ms + cost" },
+    "error_samples_path": {
+      "type": "string",
+      "description": "解析失败样本追踪 JSONL（E_PARSE_FAILURE 同步落盘，owner 审阅增强项）：每行 {case_id, arm, raw_output, timestamp}——保证失败样本可追溯、可重放"
+    },
+    "declaration": {
+      "enum": ["SYNTHETIC — 不代表企业效果", "REAL — 正式基准"],
+      "description": "数据性质强制声明（裁定 2：合成/真实永远分开汇报）"
+    }
+  },
+  "additionalProperties": false
+}

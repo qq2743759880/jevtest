@@ -1,0 +1,220 @@
+{
+  "$defs": {
+    "TriageResult": {
+      "description": "四臂统一输出（PRD §10.1 三问契约）。所有臂实现 predict(FailureState) -> TriageResult。",
+      "properties": {
+        "category": {
+          "description": "Q1 失败类别（裁定 4：M3 前冻结）",
+          "enum": [
+            "PRODUCT_DEFECT",
+            "TEST_SCRIPT",
+            "ENVIRONMENT",
+            "CONFIGURATION",
+            "FLAKY",
+            "UNKNOWN"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "action": {
+          "description": "Q2 下一步动作（裁定 4：M3 前冻结）",
+          "enum": [
+            "RERUN",
+            "COLLECT_MORE_LOGS",
+            "CHECK_ENVIRONMENT",
+            "ASSIGN_TEST_OWNER",
+            "ASSIGN_PRODUCT_DEVELOPER",
+            "HUMAN_TRIAGE"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "priority": {
+          "description": "Q3 优先级，语义见 PRD 裁定 5（5=疑似阻断主干回归的产品缺陷 … 1=疑似 flaky）；决定“谁先看到”而非“谁先修”",
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "confidence": {
+          "description": "消费方=漏斗路由器；阈值是策略，由调用方代码持有（官方语义）。Jev 臂此字段承载 Probs[Value]（正确概率），分布尖锐度放 confidence_sharpness",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reason": {
+          "description": "人可读依据摘要。Rule 臂必须含规则 ID+触发字段值；缺失或空的 reason 视为无效输出，路由器按 UNKNOWN+HUMAN_TRIAGE 兜底",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "probs": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "可选：逐选项概率分布（Jev Choice/Score 原生返回）",
+          "title": "Probs"
+        },
+        "confidence_sharpness": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "可选：Jev Confidence 原值（分布尖锐度，非校准概率）——与 confidence 分字段承载，禁止混用",
+          "title": "Confidence Sharpness"
+        },
+        "routing_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "可选（Cascade 臂）：实际走过的路由，如 rule|jev|llm|human",
+          "title": "Routing Path"
+        }
+      },
+      "required": [
+        "category",
+        "action",
+        "priority",
+        "confidence",
+        "reason"
+      ],
+      "title": "TriageResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "review-record-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "review_id": {
+      "minLength": 1,
+      "title": "Review Id",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "result_version": {
+      "minLength": 1,
+      "title": "Result Version",
+      "type": "string"
+    },
+    "actor_type": {
+      "enum": [
+        "local_user",
+        "model",
+        "test"
+      ],
+      "title": "Actor Type",
+      "type": "string"
+    },
+    "actor_origin": {
+      "minLength": 1,
+      "title": "Actor Origin",
+      "type": "string"
+    },
+    "assistance_mode": {
+      "enum": [
+        "unaided",
+        "model_assisted",
+        "model_only"
+      ],
+      "title": "Assistance Mode",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "accept",
+        "correct",
+        "defer"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "before_result": {
+      "$ref": "#/$defs/TriageResult"
+    },
+    "after_result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TriageResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "confidence_origin": {
+      "anyOf": [
+        {
+          "const": "inherited_unreassessed",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence Origin"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "reviewed_at": {
+      "minLength": 1,
+      "title": "Reviewed At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "review_id",
+    "request_id",
+    "result_version",
+    "actor_type",
+    "actor_origin",
+    "assistance_mode",
+    "decision",
+    "before_result",
+    "reviewed_at"
+  ],
+  "title": "ReviewRecordV1",
+  "type": "object"
+}

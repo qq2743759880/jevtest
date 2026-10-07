@@ -1,0 +1,545 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jevtest.local/contracts/dataset-metadata.schema.json",
+  "title": "DatasetMetadata",
+  "$comment": "本契约属 Dataset Contract Layer（real-data-acquisition-plan v1.1 §7 三件套之一），独立于冻结四件套（failure-state.schema.json / triage-result.schema.json / benchmark.schema.json + rule-baseline-v0.yaml）版本化。当前契约结构版本为 \"2\"（外部契约审阅裁定 CHANGES REQUIRED 修订：DCL-001 provenance 样本级 source_tier/domain_relevance（收口时已修正为 artifact 级属性+join 投影）、DCL-005 split_mode 双模式互斥 + allocation_seed 必填、S-1 quality_metrics/retention_policy/raw_disposition；原地小补仍未冻结：split_assignment item 的 sample_id 升为必填——validate_dataset_bundle 需要，外部审计 P0 裁定）。完整 provenance 治理字段存放于本层——FailureState.provenance 冻结契约（additionalProperties:false，仅 dataset_version/synthetic/source）是模型输入契约，不放治理字段（plan §Provenance 存放位置）。字段 domain_shift 禁止出现：域偏移已由 source_tier × domain_relevance 两个正交维度取代（plan §3，审计 F-004），additionalProperties:false 使其结构上不可能再出现。DCL v1.1 收口修订（PASS WITH CONDITIONS，2026-09-25）：① 术语修正（评审 P1）——provenance 的 source_tier/domain_relevance 是 **artifact 级属性，经 artifact_id join 投影到样本**（真实模型 Artifact→多 sample；单 artifact 内样本域相关性不同的场景需未来 schema 版本扩展表达，本版本不假装支持样本级差异）；② research_question/grouping_strategy 升必填并进入语义门 binding（评审 P1，与实际生效 split-policy.yaml 由 validate_dataset_bundle 比对）。收口修订（2026-09-26，外审六件 #4，契约版本仍 \"2\" 未冻结）：① holdout_basis 枚举新增 pilot0_by_design——Pilot-0 校准批次按设计整批进 calibration（'没切'且有意为之），区别于 split_not_feasible（group 模式下组数不足'不能切'，split-policy feasibility gate 语义）；② counts.per_class 允许 null——标注未完成时禁止 UNKNOWN 占位（旧占位会把'未标注'伪装成'全部 UNKNOWN'的假分布），须同时声明顶层 label_status: \"pending\"，双标完成后回填真实分布。",
+  "description": "数据集级 metadata 契约（data/calibration/real-v1/metadata.json 的行格式约束）。职责：provenance 台账（含 artifact 级 source_tier × domain_relevance 属性，经 artifact_id join 投影到样本——交叉分层报告的事实源）、研究问题与分组策略 binding、来源分层×域相关性、split 分配记录（group/temporal 双模式互斥）、计数报告（派生统计）与 holdout 可行性门（owner 指令 6）、质量指标（κ 数字为机器可审计资产）与 raw artifact 保留政策。无来源的数据不得进入正式集（plan §2）。语义规则（计数一致性、split 可行性、research_question/grouping_strategy 与 split-policy 一致性）由 src/jevtest/dataset_contracts.py::validate_dataset_bundle 强制；本 schema 管结构。",
+  "type": "object",
+  "required": [
+    "allocation_seed",
+    "annotation_schema_version",
+    "asset_tier",
+    "counts",
+    "dataset_version",
+    "grouping_strategy",
+    "guideline_version",
+    "holdout_basis",
+    "provenance",
+    "quality_metrics",
+    "raw_disposition",
+    "research_question",
+    "retention_policy",
+    "source_tier",
+    "split",
+    "split_assignment",
+    "split_mode",
+    "split_policy_version",
+    "workflow_status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "dataset_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "如 \"real-calibration-v1\"；与 FailureState.provenance.dataset_version 对应"
+    },
+    "annotation_schema_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "本数据集标注记录使用的 contracts/annotation-schema.json 版本（结构修订后为 \"2\"）"
+    },
+    "guideline_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "本数据集标注使用的 docs/annotation-guideline-v<N>.md 版本（如 \"2\"）"
+    },
+    "split_policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "本数据集 split 分配依据的 contracts/split-policy.yaml 的 split_policy_version（如 \"1.1\"），必须与该文件一致"
+    },
+    "research_question": {
+      "enum": [
+        "same_project_future_failure",
+        "cross_project_generalization"
+      ],
+      "description": "本数据集要回答的研究问题（DCL v1.1 收口条件 2）：与实际生效 split-policy.yaml 的 research_question 必须一致，由 validate_dataset_bundle 比对强制——研究问题是数据集事实的一部分，不是政策文件的私有注记；两处漂移即硬违规。枚举与 split-policy §0 的合法问题集同源；扩表须先在 split-policy 固化为新版本，再改本 schema。禁止采集中途更换。"
+    },
+    "grouping_strategy": {
+      "enum": [
+        "test_issue_family",
+        "repository"
+      ],
+      "description": "source_group_id 分组策略（DCL v1.1 收口条件 2）：与 research_question 绑定（same_project_future_failure → test_issue_family；cross_project_generalization → repository），与实际生效 split-policy.yaml 的 grouping_strategy 由 validate_dataset_bundle 比对强制。禁止采集中途更换。"
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "description": "数据集级 provenance 台账：每条进入数据集的原始 artifact 一条记录（去重以 original_hash 为准，raw bytes 级）。与 annotations.jsonl 的 artifact_id join（二者同值：完整 SHA256）。每条记录必含 source_tier 与 domain_relevance（DCL-001）——二者是 **artifact 级 provenance 属性，经 artifact_id join 投影到样本**（继承规则见 validator _recompute_sample_level_stats）；没有该属性，source_tier × domain_relevance 交叉分层报告（Pilot Gate 要求）不可能。已知模型局限（DCL v1.1 收口评审 P1）：单个 artifact 跨领域时（如一份大 CI log 同时含网络/前端/数据库测试），本版本只能给该 artifact 一个 relevance 值——样本级差异化需要未来 schema 版本扩展，不由本版本假装支持。P0 企业日志若有合同保留要求，在 license 字段注明保留期限并与顶层 retention_policy/raw_disposition 一致。",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_type",
+          "source_url",
+          "collected_at",
+          "license",
+          "original_hash",
+          "source_tier",
+          "domain_relevance"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "source_type": {
+            "type": "string",
+            "minLength": 1,
+            "description": "来源类型，如 \"enterprise_log\"(P0) / \"public_ci\"(P1) / \"oss_issue\"(P2)，与 source_tier 对应"
+          },
+          "source_url": {
+            "type": "string",
+            "minLength": 1,
+            "description": "来源定位（URL 或企业内部可追溯标识）"
+          },
+          "collected_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "采集时间，ISO8601"
+          },
+          "license": {
+            "type": "string",
+            "minLength": 1,
+            "description": "使用许可；无明确许可的来源不得进入正式集"
+          },
+          "original_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "SHA256(原始 artifact 字节，任何转换之前)——先算 hash 后脱敏（plan §4）；同一 artifact 两次采集必须产生相同 hash；= annotation 记录的 artifact_id（文件身份，非样本主键 sample_id）"
+          },
+          "source_tier": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2"
+            ],
+            "description": "artifact 级来源分层（纯 provenance 维度，不作质量判断，plan §3；经 artifact_id join 投影到样本）。必填（DCL-001）：与顶层 source_tier 枚举同源；顶层 source_tier 数组 = 本字段去重集合。"
+          },
+          "domain_relevance": {
+            "enum": [
+              "in_domain",
+              "adjacent_domain",
+              "out_of_domain",
+              "unknown"
+            ],
+            "default": "unknown",
+            "description": "artifact 级域相关性（经 artifact_id join 投影到样本；plan §3：决定域偏移的是样本领域而非下载渠道）。必填（DCL-001）；P1/P2 默认 unknown，经 repo topics/关键词 + 人工确认后才能标 in_domain。交叉分层报告（source_tier × domain_relevance）由 semantic validator/报告器从本字段聚合（artifact 级属性 → 样本投影）。"
+          }
+        }
+      }
+    },
+    "source_tier": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "P0",
+          "P1",
+          "P2"
+        ]
+      },
+      "description": "本数据集包含的来源分层（纯 provenance 维度，不作质量判断，plan §3）；必须等于 provenance[].source_tier 的去重集合（语义 validator 核对）"
+    },
+    "split_mode": {
+      "enum": [
+        "group",
+        "temporal"
+      ],
+      "description": "split 分配模式（DCL-005，两模式互斥，取代 v1 草案的 temporal_holdout_enabled 与 '降级 temporal holdout' 措辞）：group = source_group_id 是不可拆分分配单元，同组禁跨 split（seeded 随机按组分配）；temporal = 允许同 source_group_id 跨时间窗口，按 event_time 对 temporal_cutoff 的比较逐样本分配（holdout = 晚于 cutoff 的时间窗）。模式在数据集定稿分配前选定并记录于此，禁止采集中途混用两模式。"
+    },
+    "temporal_cutoff": {
+      "type": "string",
+      "format": "date-time",
+      "description": "temporal 模式的时间分界（ISO8601）：event_time <= temporal_cutoff → calibration，event_time > temporal_cutoff → holdout。仅 split_mode=temporal 时允许且必填（见 allOf）；group 模式禁止填写。"
+    },
+    "allocation_seed": {
+      "type": "integer",
+      "description": "组→split（group 模式）seeded 随机分配的固定整数 seed（Python random.Random(seed)）；分配时必须落定并记录于此（复现要求，禁止 null/缺失）。temporal 模式下不参与分配但仍必填（记录数据集定稿时的 RNG 状态，保持字段稳定）。"
+    },
+    "split": {
+      "type": "object",
+      "description": "各 split 的样本数记录（派生统计）。group 模式：split 分配按 group 整体进行（禁按样本随机切，plan §5）；temporal 模式：按 event_time/cutoff 逐样本分配。枚举 calibration|holdout 与 split-policy.yaml 一致。sum(split)==counts.total 由语义 validator 核对。",
+      "patternProperties": {
+        "^(calibration|holdout)$": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "split_assignment": {
+      "type": "array",
+      "minItems": 1,
+      "description": "实际分配明细（数据集定稿时按 split-policy 分配后记录，禁删除）。group 模式：每组一条（source_group_id → split，同组全部样本同 split）；temporal 模式：逐样本一条（sample_id + source_group_id + split，同 source_group_id 可出现在两个 split）。修订（v1.1 后原地小补，契约版本仍 \"2\" 未冻结）：source_group_id/sample_id 在两模式下均必填——group 模式靠 source_group_id 做组完整性核对，temporal 模式靠 sample_id 做逐样本 event_time/cutoff 重算核对（语义 validator validate_dataset_bundle 需要，外部审计 P0 裁定）。",
+      "items": {
+        "type": "object",
+        "required": [
+          "source_group_id",
+          "sample_id",
+          "split"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "source_group_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sample_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "必填（结构修订）：该分配条目对应的样本（与 annotations.jsonl 的 sample_id 一致）。group 模式：组级条目填组内任一样本（语义核对以 annotations 的 source_group_id 投影为准）；temporal 模式：逐样本条目，validate_dataset_bundle 按 event_time/temporal_cutoff 重算核对。"
+          },
+          "split": {
+            "enum": [
+              "calibration",
+              "holdout"
+            ],
+            "description": "枚举与 split-policy.yaml 的 split_values 一致"
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "description": "数据集定稿时的计数报告。注意：本对象全部字段为派生统计（DCL-001）——非事实源，由语义 validator（src/jevtest/dataset_contracts.py::validate_metadata）从 annotations.jsonl 与 provenance[] 重算核对；事实源是原始记录（annotator 的最终 category；provenance[] 的 artifact 级 source_tier/domain_relevance 经 artifact_id join 投影到样本）。质量门与 feasibility gate 消费本报告前必须先过 validator。",
+      "required": [
+        "total",
+        "unique_source_groups",
+        "groups_per_split",
+        "per_class",
+        "domain_relevance"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "样本总数（派生；= sum(per_class) = sum(domain_relevance) = sum(split)，validator 核对）"
+        },
+        "unique_source_groups": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "去重后的 source_group_id 数量（派生）；< 2 时禁止声称 group_level holdout（见 allOf 可行性门）"
+        },
+        "groups_per_split": {
+          "type": "object",
+          "description": "每个 split 的 group 数（派生；feasibility gate 要求必须报告，plan §Split feasibility gate；sum == unique_source_groups，validator 核对）",
+          "patternProperties": {
+            "^(calibration|holdout)$": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "minProperties": 1
+        },
+        "per_class": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "6 类冻结枚举的样本分布（派生；含 UNKNOWN，全部键必须报告，允许为 0；最终 category 取裁定后值：有 adjudication 用 final_category，否则用一致的双标值）。收口修订（2026-09-26，外审六件 #4，版本仍 \"2\" 未冻结）：标注未完成时允许 null——禁止用 UNKNOWN=total 占位（那是把'未标注'伪装成真实分布）；null 时必须同时声明顶层 label_status: \"pending\"，双标完成后回填真实分布并清空 label_status。",
+          "patternProperties": {
+            "^(PRODUCT_DEFECT|TEST_SCRIPT|ENVIRONMENT|CONFIGURATION|FLAKY|UNKNOWN)$": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "minProperties": 6
+        },
+        "domain_relevance": {
+          "type": "object",
+          "description": "按 domain_relevance 的样本计数分布（派生，DCL-001；决定正式报告分层）。事实源为 provenance[].domain_relevance（artifact 级属性，经 artifact_id join 投影到样本），本分布由 validator 重算核对（sum == total）。",
+          "patternProperties": {
+            "^(in_domain|adjacent_domain|out_of_domain|unknown)$": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "minProperties": 1
+        },
+        "source_tier_x_domain_relevance": {
+          "type": "object",
+          "description": "source_tier × domain_relevance 交叉分层计数（派生，DCL-001 的交叉报告产物；键格式 \"<tier>|<relevance>\"，如 \"P1|in_domain\"；Pilot Gate 的'分层可分离汇报'由此承载）。事实源为 provenance[] 的 artifact 级两字段（经 artifact_id join 投影到样本），validator 重算核对（sum == total）。",
+          "patternProperties": {
+            "^(P0|P1|P2)\\|(in_domain|adjacent_domain|out_of_domain|unknown)$": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "holdout_basis": {
+      "enum": [
+        "group_level",
+        "temporal",
+        "split_not_feasible",
+        "pilot0_by_design"
+      ],
+      "description": "holdout 声明依据（owner 指令 6 feasibility gate）。与 split_mode 绑定（allOf 强制）：split_mode=temporal → 本字段必为 temporal；split_mode=group → 只能 group_level / split_not_feasible / pilot0_by_design；group 模式下 unique_source_groups < 2 时禁止 group_level，必须 split_not_feasible 或 pilot0_by_design（temporal 是独立模式，不是降级补丁——需 temporal 验证应在分配前改用 temporal 模式，DCL-005）。pilot0_by_design（收口修订 2026-09-26，外审六件 #4）：Pilot-0 校准批次按设计整批进 calibration（'没切'且有意为之，holdout 留待正式批次），与 split_not_feasible（组数不足，'不能切'）语义互斥。"
+    },
+    "label_status": {
+      "enum": [
+        "pending",
+        "complete"
+      ],
+      "description": "顶层标注状态（收口修订 2026-09-26，外审六件 #4；重复定义已按契约卫生删除——本条为唯一保留定义，描述合并两版）：pending = 双标未完成，counts.per_class 允许为 null（禁止 UNKNOWN=total 占位——那是把'未标注'伪装成真实分布；UNKNOWN 是业务第六类，不是空值）；complete = 双标完成，per_class 必须回填真实分布。per_class=null 而 label_status!='pending' 的组合由语义门（validate_metadata / validate_dataset_bundle）报错。仅 labels 侧字段，不影响 provenance/split 治理。"
+    },
+    "repo_distribution": {
+      "type": "object",
+      "description": "按 repo 全名（owner/repo，GitHub 官方 full_name）的样本分布（派生，收口修订 2026-09-26 外审六件 #5）。事实源为采集台账 repo 字段（GitHub API full_name，大小写规范），由报告器从 admitted-failures.jsonl 重算核对；psf/requests 与 requests/requests 是两个不同 repo，禁止合并计数。"
+    },
+    "data_directory_contract": {
+      "type": "object",
+      "description": "数据目录契约声明（收口修订 2026-09-26，外审六件 #3）：键 = pilot 目录内文件名，值 = 该文件的角色说明。canonical 三件：candidates-pool.jsonl=候选池（admission 输入，downstream 禁读）、admitted-failures.jsonl=官方集（downstream 唯一可消费）、blind-annotation-package.jsonl=标注视图。"
+    },
+    "holdout_basis_note": {
+      "type": "string",
+      "description": "holdout_basis 的人类可读补充说明（自由文本；不参与机器判定，语义门只消费 holdout_basis）。"
+    },
+    "batch_purpose": {
+      "enum": [
+        "annotation_protocol_pilot",
+        "effectiveness_dataset"
+      ],
+      "description": "批次用途二分类（2026-09-26 Pre-Annotation Final Gate 修订，contracts/q2-review-policy-v2.yaml）：annotation_protocol_pilot = 流程/协议 pilot（Pilot-0，owner test-retest，允许 controlled repeat）；effectiveness_dataset = 正式 ≥100 Pilot / Benchmark（root-cause signature strict unique，v1 R1 维持）。缺省（字段缺席）视为 effectiveness_dataset——从严。batch_purpose=effectiveness_dataset 而存在 repeat_signature=true 样本 → 语义门（validate_dataset_bundle / validate_pilot_bundle）硬报错。"
+    },
+    "q2_review_policy_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "本批次 signature 去重/打标所依据的 contracts/q2-review-policy 版本（如 \"2\"）。版本化纪律：q2-review-policy-v2.yaml 自 Pilot-0 采集（2026-09-26，已发生）起冻结，语义修改走 v3。"
+    },
+    "signature_stats": {
+      "type": "object",
+      "description": "signature 打标统计（q2-review-policy-v2 PR2；与逐行 repeat_signature 重算一致性由语义门强制）。unique_signature_count = 批次内独立 signature 数（非重复样本各 1 个 + 重复组首见计入其 signature）；repeat_signature_count = repeat_signature=true 样本数；q2_repeat_samples_retained = Q2 复核放行且带 repeat 的样本数（历史对账口径）；total_samples 必须等于 counts.total。",
+      "required": [
+        "total_samples",
+        "unique_signature_count",
+        "repeat_signature_count"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unique_signature_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repeat_signature_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "q2_repeat_samples_retained": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "quality_metrics": {
+      "type": "object",
+      "description": "双标一致性质量指标（S-1）：Pilot Gate 的 κ 数字必须是机器可审计资产而非报告文本——本对象由计算脚本产出后固化，语义 validator 从 annotations.jsonl 原始标签重算核对。禁止任何下游 κ 计算直接消费本缓存（含 weighted κ：必须从原始标签的 marginal 分布重算）。",
+      "required": [
+        "category_kappa",
+        "action_kappa",
+        "priority_weighted_kappa",
+        "raw_agreement",
+        "computed_at",
+        "computation_script_version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "category_kappa": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -1,
+          "maximum": 1,
+          "description": "Cohen's κ（category，A vs B 原始标签）；未计算时为 null（此时数据集不得通过 Pilot Gate κ 门槛）"
+        },
+        "action_kappa": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -1,
+          "maximum": 1,
+          "description": "Cohen's κ（action，A vs B 原始标签）；未计算时为 null"
+        },
+        "priority_weighted_kappa": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -1,
+          "maximum": 1,
+          "description": "linear weighted κ（priority，序数距离，权重方案冻结为 linear，审计 F-003）；必须从 A/B 原始 priority 的 marginal 分布重算，禁止从 agreement.priority_delta 缓存推导；未计算时为 null"
+        },
+        "raw_agreement": {
+          "type": "object",
+          "description": "原始一致率（κ 受 prevalence 影响偏斜分布，须并报，plan §6）",
+          "required": [
+            "category",
+            "action",
+            "priority"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "category": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1,
+              "description": "category 逐样本一致比例；未计算时为 null"
+            },
+            "action": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1,
+              "description": "action 逐样本一致比例；未计算时为 null"
+            },
+            "priority": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 1,
+              "description": "priority 完全一致（delta==0）比例；未计算时为 null"
+            }
+          }
+        },
+        "computed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "指标计算时间，ISO8601"
+        },
+        "computation_script_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "计算脚本标识与版本（如 \"jevtest.dataset_contracts@<git rev>\"），保证 κ 数字可复现审计"
+        }
+      }
+    },
+    "retention_policy": {
+      "type": "string",
+      "minLength": 1,
+      "description": "raw artifact 保留政策（S-1，独立成字段；plan §Raw Artifact 安全生命周期）。默认：脱敏验证通过后立即删除 raw，仅留 original_hash 供审计；P0 企业日志若有合同保留要求，在此注明保留期限（如 \"P0 raw 保留 90 天\"）。"
+    },
+    "raw_disposition": {
+      "enum": [
+        "raw_deleted_after_redaction",
+        "raw_retained_in_quarantine"
+      ],
+      "description": "raw artifact 当前处置状态（S-1，独立成字段）：raw_deleted_after_redaction = 脱敏验证通过后已按 retention_policy 删除；raw_retained_in_quarantine = 因合同/审计要求仍保留于 quarantine/raw/（不进任何派单产物打包范围）。"
+    },
+    "workflow_status": {
+      "enum": [
+        "OPEN",
+        "CLOSED"
+      ],
+      "description": "批次工作流状态（收口修订 2026-09-26，外审指令）：与 label_status 是两个独立维度——workflow_status=CLOSED 表示该协议批次流程关闭（如 Pilot-0 annotation-protocol experiment），不等于标注完成；label_status 才表达 formal dual-label completion。禁止把 workflow 关闭伪装成标注完成。"
+    },
+    "asset_tier": {
+      "enum": [
+        "protocol_ambiguity_evidence",
+        "gold_calibration_dataset"
+      ],
+      "description": "资产等级：protocol_ambiguity_evidence = 可证明流程跑通/机制暴露/歧义发现，不可用于效果结论；gold_calibration_dataset = 完成正式双标+仲裁。Pilot-0 为前者。"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "split_mode": {
+            "const": "temporal"
+          }
+        },
+        "required": [
+          "split_mode"
+        ]
+      },
+      "then": {
+        "required": [
+          "temporal_cutoff"
+        ],
+        "properties": {
+          "holdout_basis": {
+            "const": "temporal"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "split_mode": {
+            "const": "group"
+          }
+        },
+        "required": [
+          "split_mode"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "temporal_cutoff"
+          ]
+        },
+        "properties": {
+          "holdout_basis": {
+            "enum": [
+              "group_level",
+              "split_not_feasible",
+              "pilot0_by_design"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "split_mode": {
+            "const": "group"
+          },
+          "counts": {
+            "type": "object",
+            "required": [
+              "unique_source_groups"
+            ],
+            "properties": {
+              "unique_source_groups": {
+                "type": "integer",
+                "maximum": 1
+              }
+            }
+          }
+        },
+        "required": [
+          "split_mode",
+          "counts"
+        ]
+      },
+      "then": {
+        "properties": {
+          "holdout_basis": {
+            "const": "split_not_feasible"
+          }
+        }
+      }
+    }
+  ]
+}

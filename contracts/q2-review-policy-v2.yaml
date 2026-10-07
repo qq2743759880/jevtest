@@ -1,0 +1,115 @@
+# =====================================================================
+# Q2 Review Policy v2 — dataset purpose 分层与 controlled repeat 语义
+# （外审 Pre-Annotation Final Gate 前修订，2026-09-26）
+#
+# 本文件对 q2-review-policy.yaml v1 就 **batch purpose 语义** 修订：
+# v1 的 R1（signature strict unique）默认对一切批次生效，但 Pilot-0
+# （annotation_protocol_pilot）的真实目的是测流程而非建效果集——同一
+# root-cause signature 的受控重复样本（controlled repeat）在该目的下
+# 是合法且有信息量的（测 intra-rater consistency / guideline ambiguity /
+# 流程可执行性）。v2 按批次用途区分去重语义；v1 其余内容（signature
+# 定义、R2 每 artifact 放行上限、R3 approve 判据、事件纪律）继续有效。
+#
+# 版本化纪律：v1 保留不删（顶部注记指向本文件）；本文件自 Pilot-0
+# 采集（2026-09-26，已发生）起视为 **冻结**，此后任何语义修改 =
+# 新文件 q2-review-policy-v3.yaml（重走审阅 gate），禁止原地改。
+# =====================================================================
+q2_review_policy_version: "2"
+
+# ---------------------------------------------------------------------
+# 0. dataset purpose 两分类（批次用途决定去重语义，显著位置）
+# ---------------------------------------------------------------------
+batch_purpose_taxonomy:
+  values:
+    - annotation_protocol_pilot   # Pilot-0：流程/协议 pilot（owner test-retest）
+    - effectiveness_dataset       # 正式 ≥100 Pilot / Benchmark：效果结论用数据集
+  rule: >-
+    每个数据集批次必须在 metadata.json 声明 batch_purpose（二值闭集，
+    缺省视为 effectiveness_dataset——从严）。signature 去重语义由
+    batch_purpose 决定（见 §1/§2）。
+
+# ---------------------------------------------------------------------
+# 1. effectiveness_dataset：R1 strict unique 维持（v1 不变项）
+# ---------------------------------------------------------------------
+effectiveness_dataset:
+  signature_uniqueness: strict
+  rule: >-
+    root-cause signature strict unique（v1 R1 原样维持）：同 signature
+    在最终集内只保留首见一条，其余追加 disposition=reject 事件。
+  machine_gate: >-
+    batch_purpose == "effectiveness_dataset" 的 bundle 中，任何样本携带
+    repeat_signature=true 即硬报错（validate_dataset_bundle /
+    validate_pilot_bundle 强制；这是本文件的核心机器化）。
+  rationale: >-
+    效果/准确率/泛化结论要求样本独立；signature 重复会使指标被同
+    root cause 反复计数而系统性失真。
+
+# ---------------------------------------------------------------------
+# 2. annotation_protocol_pilot：允许 controlled repeat（v2 修订项）
+# ---------------------------------------------------------------------
+annotation_protocol_pilot:
+  controlled_repeat_allowed: true
+  purpose: >-
+    测 intra-rater consistency（重测一致性）/ guideline ambiguity（指南
+    歧义率）/ 流程可执行性——重复出现的同一 root cause 正是这些测量
+    需要的输入，不是脏数据。
+  requirements:
+    - id: PR1
+      rule: >-
+        repeat_signature=true 的样本必须携带 signature_id
+        （signature_id = v1 §1 定义的 root-cause signature 字符串，
+        如 "ModuleNotFoundError:pkg_resources"，指向其所属 root-cause
+        repeat group）；repeat_signature=false 的样本不携带 signature_id
+        ——首见/独立样本本身就是该组的独立基准单位，其与 repeat 组的
+        追溯关系由 lineage（quarantine_reviewed 事件链）与本文件 replay
+        record 建立，不落行级字段（与 _check_batch_purpose_and_signature_stats
+        机器语义一致：false 行携带 signature_id 即报错）。
+    - id: PR2
+      rule: >-
+        统计必须报告 signature_stats：unique_signature_count（批次内去重
+        后的 signature 数）、repeat_signature_count（repeat_signature=true
+        的样本数）、total_samples。metadata.signature_stats 与逐行字段
+        重算必须一致（validate_pilot_bundle / validate_dataset_bundle 强制）。
+    - id: PR3
+      rule: >-
+        禁止用途（显著位置）：携带 repeat_signature=true 样本的批次
+        **禁止用于任何 effectiveness / accuracy / generalization 结论**
+        ——此类结论只能基于 effectiveness_dataset（strict unique）。
+        annotation_protocol_pilot 批次的产出限定为流程/协议结论
+        （协议可行性、consistency 初值、歧义清单），与
+        docs/pilot-0-protocol.md v1 "不产出效果结论" 一致并机器化。
+  note: >-
+    R2（每 artifact 放行上限 15）与 R3（approve 判据）对 pilot 批次
+    照常适用——controlled repeat 放宽的是"跨样本 signature 唯一"，
+    不放宽 artifact 过密防线，也不放宽 assertion 可定位要求。
+
+# ---------------------------------------------------------------------
+# 3. Pilot-0 追溯打标记录（2026-09-26，v2 落款时已完成）
+# ---------------------------------------------------------------------
+pilot0_retroactive_labeling:
+  date: "2026-09-26"
+  batch_purpose: "annotation_protocol_pilot"
+  scope: "pilot0 30 条 blind package + admitted-failures"
+  method: >-
+    用 v1 §1 signature 定义对 30 条重放：nornir 两 artifact（1b0fea44 /
+    b03d022c）内按 assertion 分类 4 个 signature（MNFE:pkg_resources /
+    DNW:ConflictingConfigurationWarning / EMITTED_EMPTY_WARNINGS /
+    NornirSubTaskError@failing_task_simple）；v1 R1 重放后最终集内同
+    signature 的非首见样本（10 条 b03d022c 补足样本，lineage
+    quarantine_reviewed:approve + reason_code
+    q2_review_policy_v1:backfill_confirmed 事件可追溯）打
+    repeat_signature=true；首见 4 条与其余 16 条非 nornir 样本打 false。
+  signature_stats:
+    total_samples: 30
+    unique_signature_count: 20
+    repeat_signature_count: 10
+  note: >-
+    unique_signature_count=20 = 16 条非 nornir 样本各 1 个独立 signature
+    （其中 ssl.SSLError 与 urllib3.LocationParseError 跨 artifact 同文
+    属不同 root cause 场景，v1 R1 的 Q2 去重范围是过密 artifact，
+    未对其执行去重）+ nornir 4 个首见 signature；repeat_signature_count=10
+    = 同 signature 组内非首见样本数（机器恒等式：unique = total − repeat
+    = 30 − 10 = 20，与 metadata.signature_stats / validate_pilot_bundle
+    重算一致；2026-09-26 外审 Final Gate 前 factual correction，原 17 为
+    上轮报告口径错误）。
+# =====================================================================

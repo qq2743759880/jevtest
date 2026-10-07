@@ -1,0 +1,28 @@
+{
+  "assertion": "CAPWAP control channel down: echo timeout (RFC 5415 7.2)",
+  "case_id": "SYN-ENVIRONMENT-0001",
+  "device": "WA6120",
+  "env": {
+    "AC_reachable": false,
+    "AP_reachable": true,
+    "DHCP_server_reachable": true,
+    "RADIUS_server_reachable": true,
+    "SMB_server_reachable": true,
+    "controller_ip": "10.20.30.41",
+    "gateway_reachable": true
+  },
+  "previous_runs": [
+    "PASS",
+    "FAIL",
+    "FAIL"
+  ],
+  "provenance": {
+    "dataset_version": "synthetic-v0",
+    "source": "jevtest.synthgen:0.1.0:seed=20260924",
+    "synthetic": true
+  },
+  "result": "FAIL",
+  "retry": "not_executed",
+  "sw_version": "V600R024C00",
+  "syslog_excerpt": "2026-09-23 15:09:13 agile-distributor-1 %DOT1X/4/STA 00:E0:FC:B5:7D:81 failure: CAPWAP control channel down: echo timeout (RFC 5415 7.2): STA 00:E0:FC:B5:7D:81 failure: CAPWAP control channel down: echo timeout (RFC 5415 7.2)\n2026-09-24 10:26:10 wac-01 %WLAN/4/STA 00:E0:FC:B5:7D:81 failure: CAPWAP control channel down: echo timeout (RFC 5415 7.2): STA 00:E0:FC:B5:7D:81 failure: CAPWAP control channel down: echo timeout (RFC 5415 7.2)\n2026-09-24 16:56:44 agile-distributor-1 %CAPWAP/3/STA 00:E0:FC:B5:7D:81 failure: CAPWAP control channel down: echo timeout (RFC 5415 7.2): STA 00:E0:FC:B5:7D:81 failure: CAPWAP control channel down: echo timeout (RFC 5415 7.2)"
+}

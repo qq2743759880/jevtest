@@ -1,0 +1,211 @@
+{
+  "$defs": {
+    "EvaluationEligibilityV1": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "not_requested",
+            "ineligible",
+            "eligible"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "criteria_version": {
+          "minLength": 1,
+          "title": "Criteria Version",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "evidence_manifest_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Manifest Id"
+        }
+      },
+      "required": [
+        "status",
+        "criteria_version",
+        "reasons"
+      ],
+      "title": "EvaluationEligibilityV1",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "run-report-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "run_purpose": {
+      "enum": [
+        "demo",
+        "advisory",
+        "synthetic_eval",
+        "real_exploratory",
+        "formal_eval"
+      ],
+      "title": "Run Purpose",
+      "type": "string"
+    },
+    "dataset_kind": {
+      "enum": [
+        "synthetic",
+        "real_labeled",
+        "real_unlabeled",
+        "mixed"
+      ],
+      "title": "Dataset Kind",
+      "type": "string"
+    },
+    "accuracy_mode": {
+      "enum": [
+        "triage_v2",
+        "legacy_exact_synthetic"
+      ],
+      "title": "Accuracy Mode",
+      "type": "string"
+    },
+    "dataset_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dataset Version"
+    },
+    "sample_count": {
+      "minimum": 0,
+      "title": "Sample Count",
+      "type": "integer"
+    },
+    "evaluated_count": {
+      "minimum": 0,
+      "title": "Evaluated Count",
+      "type": "integer"
+    },
+    "accuracy": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accuracy"
+    },
+    "accuracy_null_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accuracy Null Reason"
+    },
+    "eligibility": {
+      "$ref": "#/$defs/EvaluationEligibilityV1"
+    },
+    "attempts": {
+      "minimum": 0,
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "failed_count": {
+      "minimum": 0,
+      "title": "Failed Count",
+      "type": "integer"
+    },
+    "pricing_status": {
+      "enum": [
+        "no_external_cost",
+        "mock",
+        "known",
+        "unknown"
+      ],
+      "title": "Pricing Status",
+      "type": "string"
+    },
+    "total_cost": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Total Cost"
+    },
+    "cost_currency": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Currency"
+    },
+    "route_counts": {
+      "additionalProperties": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "title": "Route Counts",
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "report_id",
+    "run_purpose",
+    "dataset_kind",
+    "accuracy_mode",
+    "sample_count",
+    "evaluated_count",
+    "eligibility",
+    "attempts",
+    "failed_count",
+    "pricing_status",
+    "route_counts"
+  ],
+  "title": "RunReportV2",
+  "type": "object"
+}

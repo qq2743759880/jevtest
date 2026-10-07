@@ -1,0 +1,222 @@
+{
+  "$defs": {
+    "FailureState": {
+      "additionalProperties": false,
+      "description": "四臂实验统一输入。约束的是“提供什么”而非“使用什么”——任何臂不得获得本结构之外的额外信息（PRD §5.1 条款 1）。",
+      "properties": {
+        "case_id": {
+          "description": "测试用例唯一标识",
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "result": {
+          "const": "FAIL",
+          "description": "本契约只处理失败记录",
+          "title": "Result",
+          "type": "string"
+        },
+        "previous_runs": {
+          "description": "时间正序的历史运行结果，≤10 条",
+          "items": {
+            "enum": [
+              "PASS",
+              "FAIL"
+            ],
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Previous Runs",
+          "type": "array"
+        },
+        "device": {
+          "description": "设备型号，如 WA6638",
+          "minLength": 1,
+          "title": "Device",
+          "type": "string"
+        },
+        "sw_version": {
+          "description": "软件版本",
+          "minLength": 1,
+          "title": "Sw Version",
+          "type": "string"
+        },
+        "assertion": {
+          "description": "失败断言摘要，如 association timeout",
+          "minLength": 1,
+          "title": "Assertion",
+          "type": "string"
+        },
+        "syslog_excerpt": {
+          "description": "系统日志摘要；截断策略 M1 定参（默认首尾各 4096 字节），四臂同截断",
+          "maxLength": 8192,
+          "title": "Syslog Excerpt",
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "description": "环境探针布尔/字符串映射，如 AP_reachable / AC_reachable",
+          "title": "Env",
+          "type": "object"
+        },
+        "retry": {
+          "description": "重跑状态",
+          "enum": [
+            "not_executed",
+            "passed",
+            "failed"
+          ],
+          "title": "Retry",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "case_id",
+        "result",
+        "previous_runs",
+        "device",
+        "sw_version",
+        "assertion",
+        "syslog_excerpt",
+        "env",
+        "retry",
+        "provenance"
+      ],
+      "title": "FailureState",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "数据来源标记（合成/真实分离纪律，PRD 裁定 2）。",
+      "properties": {
+        "dataset_version": {
+          "minLength": 1,
+          "title": "Dataset Version",
+          "type": "string"
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "真实日志来源或合成器 seed 标识",
+          "title": "Source"
+        }
+      },
+      "required": [
+        "dataset_version",
+        "synthetic"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "triage-request-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "failure_state": {
+      "$ref": "#/$defs/FailureState"
+    },
+    "execution_mode": {
+      "enum": [
+        "offline",
+        "live"
+      ],
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "run_purpose": {
+      "enum": [
+        "demo",
+        "advisory",
+        "synthetic_eval",
+        "real_exploratory",
+        "formal_eval"
+      ],
+      "title": "Run Purpose",
+      "type": "string"
+    },
+    "policy_id": {
+      "minLength": 1,
+      "title": "Policy Id",
+      "type": "string"
+    },
+    "policy_version": {
+      "minLength": 1,
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "input_projection_version": {
+      "minLength": 1,
+      "title": "Input Projection Version",
+      "type": "string"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "projection_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Projection Hash",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    }
+  },
+  "required": [
+    "schema_version",
+    "request_id",
+    "failure_state",
+    "execution_mode",
+    "run_purpose",
+    "policy_id",
+    "policy_version",
+    "input_projection_version",
+    "input_hash",
+    "projection_hash"
+  ],
+  "title": "TriageRequestV1",
+  "type": "object"
+}

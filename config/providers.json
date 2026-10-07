@@ -1,0 +1,22 @@
+{
+  "providers": {
+    "typesafe": {
+      "product": "TypeSafe Jev (System One)",
+      "auth_env_var": "TYPESAFE_API_KEY",
+      "sdk": "typesafe-sdk (official Python SDK)",
+      "docs": "https://docs.typesafe.ai",
+      "note": "early access；配额/计费由 T06 S1 探测确认"
+    },
+    "ark": {
+      "product": "火山方舟 Volcano Ark",
+      "auth_env_var": "ARK_API_KEY",
+      "openai_compatible_base": "https://ark.cn-beijing.volces.com/api/coding/v3",
+      "anthropic_compatible_base": "https://ark.cn-beijing.volces.com/api/coding",
+      "model": "ark-code-latest",
+      "note": "P4 冻结的强 LLM 对照臂（owner 裁定 2026-09-24）；T07 用 OpenAI 兼容端点"
+    }
+  },
+  "security": {
+    "key_handling": "key 只存 .env（gitignored）；请求前校验 host：仅 http/https，拒绝 localhost/环回/私有/保留地址（Mimosa 约束）"
+  }
+}

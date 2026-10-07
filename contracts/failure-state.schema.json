@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jevtest.local/contracts/failure-state.schema.json",
+  "title": "FailureState",
+  "description": "四臂实验统一输入。约束的是'提供什么'而非'使用什么'——任何臂不得获得本结构之外的额外信息（PRD §5.1 条款 1）。",
+  "type": "object",
+  "required": ["case_id", "result", "previous_runs", "device", "sw_version", "assertion", "syslog_excerpt", "env", "retry", "provenance"],
+  "properties": {
+    "case_id": { "type": "string", "minLength": 1, "description": "测试用例唯一标识" },
+    "result": { "const": "FAIL", "description": "本契约只处理失败记录" },
+    "previous_runs": {
+      "type": "array",
+      "items": { "enum": ["PASS", "FAIL"] },
+      "maxItems": 10,
+      "description": "时间正序的历史运行结果，≤10 条"
+    },
+    "device": { "type": "string", "minLength": 1, "description": "设备型号，如 WA6638" },
+    "sw_version": { "type": "string", "minLength": 1, "description": "软件版本" },
+    "assertion": { "type": "string", "minLength": 1, "description": "失败断言摘要，如 association timeout" },
+    "syslog_excerpt": {
+      "type": "string",
+      "maxLength": 8192,
+      "description": "系统日志摘要；截断策略 M1 定参（默认首尾各 4096 字节），四臂同截断"
+    },
+    "env": {
+      "type": "object",
+      "description": "环境探针布尔/字符串映射，如 AP_reachable / AC_reachable",
+      "additionalProperties": { "type": ["boolean", "string"] }
+    },
+    "retry": { "enum": ["not_executed", "passed", "failed"], "description": "重跑状态" },
+    "provenance": {
+      "type": "object",
+      "description": "数据来源标记（合成/真实分离纪律，PRD 裁定 2）",
+      "required": ["dataset_version", "synthetic"],
+      "properties": {
+        "dataset_version": { "type": "string", "minLength": 1 },
+        "synthetic": { "type": "boolean" },
+        "source": { "type": "string", "description": "真实日志来源或合成器 seed 标识" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

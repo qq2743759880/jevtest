@@ -1,0 +1,44 @@
+# Rule Baseline v0 — 四臂实验 Rule 臂契约
+# 版本化：rule_version = "0"。任何修改 = 新版本文件（rule-baseline-v1.yaml），禁止原地改。
+# 语义：顺序执行，先命中先输出；每条输出 reason 必须含规则 ID + 触发字段值。
+rule_version: "0"
+execution: sequential_first_match
+
+rules:
+  - id: R1_FLAKY
+    priority_output: [1, 2]        # 命中后 priority 取值区间（引擎取下限 1，可配置）
+    when:
+      retry: not_executed
+      flip_count_gte: 2            # previous_runs 中 PASS<->FAIL 翻转次数 >= 2
+    output:
+      category: FLAKY
+      action: RERUN
+    reason_template: "R1: flip_count={flip_count}, retry=not_executed"
+
+  - id: R2_ENVIRONMENT
+    priority_output: 3
+    when:
+      any_env_false: true          # env 中任一布尔探针为 false（如 AP_reachable）
+    output:
+      category: ENVIRONMENT
+      action: CHECK_ENVIRONMENT
+    reason_template: "R2: env[{failing_key}]=false"
+
+  - id: R3_ERROR_CODE
+    priority_output: from_table    # 错误码表逐条自带 priority
+    when:
+      assertion_matches_table: error_codes_v0   # 表文件与本 YAML 同目录、同版本化
+    output:
+      category: from_table         # 表中每条错误码自带 category/action/priority
+    reason_template: "R3: error_code={code} matched"
+
+  - id: R4_FALLBACK
+    priority_output: 3
+    when: always
+    output:
+      category: UNKNOWN
+      action: HUMAN_TRIAGE
+    reason_template: "R4: no rule matched, assertion={assertion}"
+
+# 错误码表来源纪律（裁定 2）：只收可公开验证来源（协议 RFC 行为、厂商公开错误码文档）。
+# 表格式：[{code, category, action, priority, source_url}]，M1 生成器（T04）与本表同源。

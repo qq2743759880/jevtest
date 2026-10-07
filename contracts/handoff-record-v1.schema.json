@@ -1,0 +1,85 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "handoff-record-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "handoff_id": {
+      "minLength": 1,
+      "title": "Handoff Id",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "result_version": {
+      "minLength": 1,
+      "title": "Result Version",
+      "type": "string"
+    },
+    "target_role": {
+      "minLength": 1,
+      "title": "Target Role",
+      "type": "string"
+    },
+    "delivery_status": {
+      "enum": [
+        "pending",
+        "local_queued",
+        "failed"
+      ],
+      "title": "Delivery Status",
+      "type": "string"
+    },
+    "local_receipt_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Local Receipt Id"
+    },
+    "idempotency_scope": {
+      "minLength": 1,
+      "title": "Idempotency Scope",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "created_at": {
+      "minLength": 1,
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "request_id",
+    "result_version",
+    "target_role",
+    "delivery_status",
+    "idempotency_scope",
+    "idempotency_key",
+    "input_hash",
+    "created_at"
+  ],
+  "title": "HandoffRecordV1",
+  "type": "object"
+}

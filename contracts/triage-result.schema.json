@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jevtest.local/contracts/triage-result.schema.json",
+  "title": "TriageResult",
+  "description": "四臂统一输出（PRD §10.1 三问契约）。所有臂实现 predict(FailureState) -> TriageResult。",
+  "type": "object",
+  "required": ["category", "action", "priority", "confidence", "reason"],
+  "properties": {
+    "category": {
+      "enum": ["PRODUCT_DEFECT", "TEST_SCRIPT", "ENVIRONMENT", "CONFIGURATION", "FLAKY", "UNKNOWN"],
+      "description": "Q1 失败类别（裁定 4：M3 前冻结）"
+    },
+    "action": {
+      "enum": ["RERUN", "COLLECT_MORE_LOGS", "CHECK_ENVIRONMENT", "ASSIGN_TEST_OWNER", "ASSIGN_PRODUCT_DEVELOPER", "HUMAN_TRIAGE"],
+      "description": "Q2 下一步动作（裁定 4：M3 前冻结）"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Q3 优先级，语义见 PRD 裁定 5（5=疑似阻断主干回归的产品缺陷 … 1=疑似 flaky）；决定'谁先看到'而非'谁先修'"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "消费方=漏斗路由器；阈值是策略，由调用方代码持有（官方语义）。Jev 臂此字段承载 Probs[Value]（正确概率），分布尖锐度放 confidence_sharpness"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "人可读依据摘要。Rule 臂必须含规则 ID+触发字段值；缺失或空的 reason 视为无效输出，路由器按 UNKNOWN+HUMAN_TRIAGE 兜底"
+    },
+    "probs": {
+      "type": "object",
+      "description": "可选：逐选项概率分布（Jev Choice/Score 原生返回）"
+    },
+    "confidence_sharpness": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "可选：Jev Confidence 原值（分布尖锐度，非校准概率）——与 confidence 分字段承载，禁止混用"
+    },
+    "routing_path": {
+      "type": "string",
+      "description": "可选（Cascade 臂）：实际走过的路由，如 rule|jev|llm|human"
+    }
+  }
+}

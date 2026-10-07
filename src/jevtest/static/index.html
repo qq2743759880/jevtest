@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>JevTest · 本地分诊审核</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/assets/review.css?v=20260928-batch1">
+  <script src="/assets/review.js?v=20260928-batch1" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">J</span>
+      <div><div class="brand-name">JevTest</div><div class="brand-subtitle">本地分诊审核</div></div>
+    </div>
+    <div class="topbar-right">
+      <span id="execution-badge" class="badge neutral" role="status">连接本地服务中</span>
+      <button id="refresh-button" class="button quiet" type="button">刷新队列</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-intro">
+      <div>
+        <h1>分诊审核</h1>
+        <p class="intro-copy">先看失败与建议，再记录审核决定。</p>
+      </div>
+    </section>
+
+    <section class="workspace" aria-label="分诊审核工作区">
+      <aside class="queue panel" aria-label="本地待审核队列">
+        <div class="panel-heading">
+          <div><h2>本地待办</h2></div>
+          <span id="queue-count" class="count">0</span>
+        </div>
+        <div id="queue-list" class="queue-list" aria-live="polite"></div>
+        <div id="queue-empty" class="empty-state compact" hidden>
+          <strong>当前没有待审核项</strong>
+          <span>提交 FailureState 后，待人工分诊的结果会出现在这里。</span>
+        </div>
+      </aside>
+
+      <section class="case panel" aria-label="审核详情">
+        <div id="detail-empty" class="empty-state detail-empty">
+          <span class="empty-icon" aria-hidden="true">↗</span>
+          <strong>选择一个本地待办</strong>
+          <span>结果、路由、账目和证据会从本地服务读取。</span>
+        </div>
+        <div id="case-content" hidden>
+          <header class="case-heading">
+            <div>
+              <p id="case-kicker" class="eyebrow">故障摘要</p>
+              <h2 id="case-title">—</h2>
+            </div>
+          </header>
+
+          <section class="result-summary" aria-labelledby="result-heading">
+            <div class="result-primary">
+              <p id="result-heading" class="eyebrow">系统建议</p>
+              <div class="result-line"><strong id="result-category">—</strong><span id="result-priority" class="priority-tag">—</span></div>
+              <p id="result-action" class="result-action" hidden></p>
+              <p id="provider-failure-note" class="provider-warning" role="status" hidden></p>
+            </div>
+            <div class="reason-card">
+              <span class="field-label">为什么</span>
+              <p id="result-reason">—</p>
+              <div id="reason-evidence" class="reason-evidence" hidden>
+                <span class="field-label">可回查的提交字段</span>
+                <p class="inline-note">以下字段进入了模型输入；它们不是逐句引用，也不证明根因。</p>
+                <ul id="reason-evidence-list" class="evidence-ref-list"></ul>
+              </div>
+            </div>
+          </section>
+
+          <section id="missing-evidence-panel" class="missing-evidence-panel" hidden aria-labelledby="missing-evidence-heading">
+            <div><p class="eyebrow">下一步补证</p><h3 id="missing-evidence-heading">建议补充或核实</h3></div>
+            <ul id="missing-evidence-list"></ul>
+          </section>
+
+          <section class="section-block key-evidence-block" aria-labelledby="evidence-heading">
+            <div class="section-heading"><div><p class="eyebrow">提交材料</p><h3 id="evidence-heading">关键证据</h3></div></div>
+            <div id="evidence-preview" class="evidence-preview"></div>
+          </section>
+
+          <div class="disclosures">
+            <details id="decision-details" class="disclosure">
+              <summary><span><strong>查看判断过程</strong><small id="route-summary">实际经过的判断阶段</small></span><span class="disclosure-mark" aria-hidden="true">＋</span></summary>
+              <div class="disclosure-body">
+                <div class="section-heading"><div><p class="eyebrow">实际判断路径</p><h3>从规则到人工</h3></div><span id="terminal-stage" class="status-text">—</span></div>
+                <ol id="route-list" class="route-list"></ol>
+                <p id="decision-run-status" class="inline-note"></p>
+              </div>
+            </details>
+
+            <details id="technical-details" class="disclosure">
+              <summary><span><strong>技术详情</strong><small>版本、调用记录、费用与证据来源</small></span><span class="disclosure-mark" aria-hidden="true">＋</span></summary>
+              <div class="disclosure-body">
+                <section class="section-block">
+                  <div class="section-heading"><h3>版本与状态</h3></div>
+                  <dl class="metadata-grid">
+                    <div><dt>请求 ID</dt><dd><code id="request-id">—</code></dd></div>
+                    <div><dt>结果版本</dt><dd><code id="result-version">—</code></dd></div>
+                    <div><dt>Schema</dt><dd id="schema-value">—</dd></div>
+                    <div><dt>策略</dt><dd id="policy-value">—</dd></div>
+                    <div><dt>执行模式</dt><dd id="mode-value">—</dd></div>
+                    <div><dt>运行状态</dt><dd id="run-status">—</dd></div>
+                    <div><dt>审核状态</dt><dd id="review-status">—</dd></div>
+                    <div><dt>交接状态</dt><dd id="delivery-value">—</dd></div>
+                    <div><dt>创建时间</dt><dd id="created-value">—</dd></div>
+                    <div><dt>提交标识 / 数据集</dt><dd id="case-provenance-value">—</dd></div>
+                    <div><dt>输入摘要</dt><dd><code id="input-hash-value">—</code></dd></div>
+                    <div><dt>输入投影</dt><dd id="projection-value">—</dd></div>
+                    <div><dt>建议分类 / 动作</dt><dd id="category-action-value">—</dd></div>
+                    <div><dt>系统 confidence 原值</dt><dd id="confidence-value">—</dd></div>
+                    <div class="wide"><dt>原始分诊理由</dt><dd id="result-reason-raw">—</dd></div>
+                  </dl>
+                </section>
+
+                <section class="section-block">
+                  <div class="section-heading"><h3>调用与费用</h3><span class="status-text">来自当前结果记录</span></div>
+                  <div class="accounting-summary">
+                    <div><span>总耗时</span><strong id="total-latency">—</strong></div>
+                    <div><span>总费用</span><strong id="total-cost">—</strong></div>
+                    <div><span>计价状态</span><strong id="pricing-status">—</strong></div>
+                  </div>
+                  <p id="run-report-summary" class="inline-note report-note" hidden></p>
+                  <div class="table-scroll">
+                    <table><thead><tr><th>阶段 / Provider</th><th>状态</th><th>尝试</th><th>Token</th><th>耗时</th><th>费用</th></tr></thead><tbody id="attempt-rows"></tbody></table>
+                  </div>
+                </section>
+
+                <section class="section-block">
+                  <div class="section-heading"><h3>模型版本</h3><span class="status-text">resolved 值只来自 Provider 响应</span></div>
+                  <div id="provider-model-list" class="provider-model-list"></div>
+                </section>
+
+                <section class="section-block">
+                  <div class="section-heading"><h3>事实与证据详情</h3></div>
+                  <p class="inline-note">证据来自提交内容，未独立验证根因。</p>
+                  <p id="case-id-note" class="inline-note" hidden></p>
+                  <dl id="facts-grid" class="facts-grid"></dl>
+                  <div id="evidence-list" class="evidence-list"></div>
+                  <p id="evidence-empty" class="inline-note" hidden>该结果没有可单独回看的字段证据记录。</p>
+                  <details class="audit-details"><summary>证据校验数据</summary><div id="evidence-audit" class="evidence-audit"></div></details>
+                </section>
+                <section class="section-block">
+                  <div class="section-heading"><h3>原始运行记录</h3></div>
+                  <details class="audit-details"><summary>查看阶段代码</summary><pre id="route-raw-data" class="raw-attempts"></pre></details>
+                  <details class="audit-details"><summary>查看调用记录</summary><pre id="raw-attempts" class="raw-attempts"></pre></details>
+                  <details class="audit-details"><summary>查看模型版本记录</summary><pre id="raw-provider-metadata" class="raw-attempts"></pre></details>
+                </section>
+              </div>
+            </details>
+
+            <details id="history-details" class="disclosure history-disclosure">
+              <summary><span><strong>审核历史</strong><small id="history-count">—</small></span><span class="disclosure-mark" aria-hidden="true">＋</span></summary>
+              <div class="disclosure-body">
+                <div id="history-list" class="history-list"></div>
+                <p id="history-empty" class="inline-note" hidden>此请求尚无审核事件。</p>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <details class="submit-panel panel" id="submit-panel">
+      <summary><span><span class="eyebrow">NEW TRIAGE</span><strong>提交 FailureState</strong></span><span class="summary-hint">选择多个 JSON，或粘贴单条内容</span></summary>
+      <div class="submit-body">
+        <p id="submit-mode-note" class="inline-note">提交会调用本机离线应用服务。完整输入在本页内存中显示到刷新；SQLite 只持久化当前合同定义的 facts 投影。</p>
+        <p id="live-warning" class="inline-note live-warning" hidden>本批有效文件会逐条调用真实 Jev 与 Strong LLM，可能产生费用；返回结果仍需人工审核。</p>
+        <label class="file-label" for="failure-file">选择一个或多个 JSON 文件<input id="failure-file" type="file" accept="application/json,.json" multiple></label>
+        <div class="batch-toolbar">
+          <p id="batch-summary" class="batch-summary" aria-live="polite" hidden></p>
+          <button id="stop-batch" class="button quiet" type="button" hidden>当前请求结束后停止</button>
+          <button id="clear-batch" class="button quiet" type="button" hidden>清空文件列表</button>
+        </div>
+        <ul id="batch-list" class="batch-list" aria-label="批量分诊文件列表" hidden></ul>
+        <p id="input-mode-note" class="inline-note">选中文件后按文件列表批量分诊；不选文件时，可在下方粘贴单条 FailureState JSON。</p>
+        <label class="field-label" for="failure-json">FailureState JSON</label>
+        <textarea id="failure-json" rows="12" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder='{"case_id":"…","result":"FAIL",…}'></textarea>
+        <div class="submit-controls"><span id="submit-error" class="error-message" role="alert"></span><button id="submit-button" class="button primary" type="button" disabled>离线分诊并入队</button></div>
+      </div>
+    </details>
+  </main>
+
+  <footer id="review-bar" class="review-bar" hidden>
+    <div><strong id="review-bar-title">审核当前建议</strong><span id="review-bar-copy">接受不会把故障标记为已解决。</span></div>
+    <div class="action-group" aria-label="审核动作">
+      <button class="button primary" data-review="accept" type="button">接受建议</button>
+      <button class="button" data-review="correct" type="button">修改建议</button>
+      <button class="button" data-review="defer" type="button">暂缓补证</button>
+    </div>
+  </footer>
+
+  <dialog id="review-dialog" class="dialog">
+    <form id="review-form">
+      <div class="dialog-heading"><div><p class="eyebrow">LOCAL REVIEW</p><h2 id="dialog-title">审核建议</h2></div><button id="dialog-cancel" class="button quiet" type="button">取消</button></div>
+      <p id="dialog-copy" class="dialog-copy"></p>
+      <label class="form-field">审核人自述标签<input id="operator-label" required maxlength="120" autocomplete="name" placeholder="例如：本机测试负责人"></label>
+      <div id="correct-fields" hidden>
+        <div class="form-row">
+          <label class="form-field">分类<select id="correct-category" required><option value="PRODUCT_DEFECT">PRODUCT_DEFECT · 产品缺陷</option><option value="TEST_SCRIPT">TEST_SCRIPT · 测试脚本</option><option value="ENVIRONMENT">ENVIRONMENT · 环境</option><option value="CONFIGURATION">CONFIGURATION · 配置</option><option value="FLAKY">FLAKY · 偶发</option><option value="UNKNOWN">UNKNOWN · 仍需人工</option></select></label>
+          <label class="form-field">下一步动作<select id="correct-action" required><option value="RERUN">RERUN · 重跑</option><option value="COLLECT_MORE_LOGS">COLLECT_MORE_LOGS · 补充日志</option><option value="CHECK_ENVIRONMENT">CHECK_ENVIRONMENT · 检查环境</option><option value="ASSIGN_TEST_OWNER">ASSIGN_TEST_OWNER · 测试负责人</option><option value="ASSIGN_PRODUCT_DEVELOPER">ASSIGN_PRODUCT_DEVELOPER · 产品开发</option><option value="HUMAN_TRIAGE">HUMAN_TRIAGE · 人工分诊</option></select></label>
+        </div>
+        <label class="form-field">优先级（1–5）<input id="correct-priority" type="number" min="1" max="5" step="1" required></label>
+        <div class="confidence-note"><strong>Confidence 保持原值</strong><span id="confidence-copy">—</span><small>当前结果契约要求数值；本次人工修订不会重新评估概率。保存的审核记录会标明该值沿用且未重评。</small></div>
+      </div>
+      <label class="form-field">理由 / 修订依据<textarea id="review-reason" rows="4" maxlength="2000" placeholder="说明接受依据、修订理由或暂缓需要的材料"></textarea></label>
+      <label class="form-field">逐字确认：<code id="confirmation-prompt">—</code><input id="confirmation" required autocomplete="off"></label>
+      <p id="dialog-error" class="error-message" role="alert"></p>
+      <div class="dialog-actions"><button id="review-submit" class="button primary" type="submit">写入本地审核记录</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

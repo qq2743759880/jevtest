@@ -1,0 +1,14 @@
+# Cascade 路由阈值 —— owner 批准决议（T11 启动前置）
+# 批准来源：owner 2026-09-24「阈值批准」，基于 60 条合成样本校准预演
+# （docs/synthetic-calibration-preview.md，jev-1.13.0，stratified n=60）
+# ⚠️ 依据局限：synthetic-preview basis。M2 正式校准（≥100 真实双标样本）完成后
+#    必须重校准并覆盖本文件——重校准前本配置仅供合成实验与演示使用。
+signal: confidence            # = Probs[Value]（正确概率语义，PRD §10.2）
+                              # sharpness 与其仿射等价（r=0.999），不提供第二维度，故不采用
+high_confidence_route: 0.9    # >= 0.9 → 自动 Route（预演观测：n=49，accuracy 1.000）
+low_confidence_escalate: 0.7  # < 0.7 → 升级 Strong LLM / Human（预演观测：n=7，accuracy 0.000）
+                              # 0.7–0.9 中间带 → 交 Strong LLM 臂复核后输出
+approved_by: owner
+approved_at: "2026-09-24"
+basis: synthetic-preview (n=60, jev-1.13.0)
+revisit_when: ">=100 real dual-labeled samples available (external dependency #4)"

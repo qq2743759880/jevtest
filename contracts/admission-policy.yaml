@@ -1,0 +1,178 @@
+# =====================================================================
+# Admission Policy v1 — 样本收录准则（Pilot-0 P1-2）
+# 机器可读；逐条二值判据，禁止模糊措辞（"通常"、"酌情"类措辞不得作为判据）。
+#
+# 版本化纪律：本文件自首次正式采集起冻结；此后任何修改 = 新文件
+# admission-policy-v2.yaml（重走审阅 gate），冻结版禁止原地修改
+# （与 split-policy.yaml / rule-baseline-v0.yaml 同纪律）。
+#
+# $comment (2026-09-26, P0-1 修复): Q2 判据的 sample_count 语义澄清为
+# dataset 级累计（当轮 + 已入库行数），属对 v1 原描述"同一 artifact 拆出
+# >10 个 sample"的**原地描述修正**而非判据变更——阈值 10、reason_code、
+# 判据 id 均未变，仅消除"单轮视角可被跨轮绕过"的歧义。本文件在首次正式
+# 采集（本 Pilot-0 校准批次）尚未冻结，故允许原地修正；自本注释落款起的
+# 下一轮正式采集仍按版本化纪律走 v2 新文件。
+# $comment (2026-09-26, P0-1 修复): quarantine 判定的 lineage 事件类型由
+# sample_rejected 改记为 sample_quarantined（quarantine 不是拒绝而是待人工
+# 复核；Q2 状态机 sample_quarantined → quarantine_reviewed(approve/reject)），
+# discard 仍记 sample_rejected。实现见 scripts/collectors/audit_log.py 的
+# ADMISSION_EVENT_TYPES。
+# $comment (2026-09-26, W2 收口): 新增 quarantine 判据 Q4
+# （h3c_marker_gate_fail）——domain_slice 自报 "H3C-DIRECT-REAL" 但
+# scripts.collectors.domain_governance.validate_domain_slice 校验失败
+# （无 hard H3C marker / evidence 为空 / 占位串填空等）→ 强制 quarantine。
+# 属执行契约 docs/H3C-specific-pilot-kickoff.md W2 验收原文 "H3C-DIRECT-REAL
+# requires at least one hard H3C marker" 的 admission 层机器执行；仅当采集
+# 端在 sample_ctx 传入 domain 对象时参与判定（domain=None 不触发，既有
+# 采集链路零变化）。本文件在首次正式采集（本 Pilot-0 校准批次）尚未冻结，
+# 允许原地修订；自本注释落款起的下一轮正式采集仍按版本化纪律走 v2 新文件。
+#
+# 语义来源：real-data-acquisition-plan v1.1 §6 两级质量门 + 外部审计
+# "正式生产 NOT YET" 裁定的 P1-2 缺口（收录准则未机器化）。
+# 对应实现：scripts/collectors/admission.py::admit（纯函数，逐判据可单测）。
+# 判定结果写入 lineage.jsonl（audit_log）的 sample_admitted /
+# sample_quarantined / sample_rejected 事件，detail.admission_reason 携带
+# 本文件给出的 reason 码。
+# =====================================================================
+admission_policy_version: "1"
+
+# ---------------------------------------------------------------------
+# 0. 判定顺序（实现必须按此顺序短路；判定互斥，每条 sample 恰得一个分类）
+#    1) discard 判据（内容层面不合格，直接淘汰）
+#    2) quarantine 判据（可救但需人工复核，不入自动收录流）
+#    3) admit 判据（全部满足才 admit）
+# ---------------------------------------------------------------------
+decision_order: [discard, quarantine, admit]
+
+# ---------------------------------------------------------------------
+# 1. admit —— 进 dataset（三条判据全部满足；reason 码 must_be_* 系列）
+# ---------------------------------------------------------------------
+admit:
+  all_of:
+    - id: A1
+      criterion: "assertion 可定位：failure_state.assertion 非空且非占位串 'assertion not captured'"
+      check: "is_nonempty_assertion"
+      reason_code: "must_be_locatable_assertion"
+    - id: A2
+      criterion: >-
+        失败语义明确：failure_state.syslog_excerpt（或 assertion）内可命中
+        六类之一判定所需的错误语义（pytest/unittest/go/npm 失败行、
+        traceback、AssertionError 类断言行之一），使 category 判定字段可指向
+      check: "has_error_semantics"
+      reason_code: "must_have_error_semantics"
+    - id: A3
+      criterion: "license 已记录：provenance.license 非空且 != 'none-recorded'，或明示 'none-recorded' 且该记录已由 owner 逐条签收（license_recorded=true）"
+      check: "license_recorded_or_signed_off"
+      reason_code: "must_have_license"
+    - id: A4
+      criterion: "脱敏扫描零命中：scan_credentials(脱敏文本) == []（RawArtifactStore 迁出门已过的 artifact 视为满足）"
+      check: "credential_scan_zero_hits"
+      reason_code: "must_pass_credential_scan"
+  evidence_required_nonempty:
+    # admit 时以下字段必须非空（写入 lineage 事件 detail.evidence 检查结果）
+    - failure_state.assertion
+    - failure_state.syslog_excerpt
+    - artifact_id            # 完整 SHA256（64 hex）
+    - sample_id              # 完整 SHA256（64 hex）
+    - occurrence_index       # >= 0 整数
+    - event_time             # ISO8601
+    - source_group_id        # split-policy v1.1 §1 键
+    - source_url             # provenance 台账字段（无来源不得进正式集）
+    - license
+  admitted_reason_code: "all_criteria_met"
+  # 全部判据满足时 lineage sample_admitted 事件的 reason 码（成功码，
+  # 与上方 must_* 系列失败码并列，同属本文件给出的闭集）。
+
+# ---------------------------------------------------------------------
+# 2. quarantine —— 需人工复核（任一命中即 quarantine；不入自动收录流，
+#    由 owner 人工处置后改判或淘汰；处置记录进 lineage）
+# ---------------------------------------------------------------------
+quarantine:
+  any_of:
+    - id: Q1
+      criterion: >-
+        失败语义模糊但日志含错误上下文：A2 语义判据未命中，但
+        syslog_excerpt 含错误类词（error/exception/failed/failure/traceback/
+        panic/assert 任一，大小写不敏感）——失败方向存在但不可定位到具体判据
+      check: "vague_but_has_error_context"
+      reason_code: "vague_semantics_needs_review"
+    - id: Q2
+      criterion: >-
+        同一 artifact 在 dataset 中的累计 sample 总数 >10（异常密集：疑似日志
+        含重试风暴/全量失败刷屏，拆样质量存疑）。P0-1 修复：sample_count 为
+        dataset 级累计视角（当轮拆样数 + failures.jsonl 中同 artifact_id 的
+        已有行数），非单轮视角——同一 artifact 分多轮采集时按累计数判定，
+        堵"每轮各拆 ≤10 条、跨轮累计绕过"的缺口
+      check: "sample_count_over_threshold"
+      threshold: 10
+      reason_code: "artifact_overdense_samples"
+    - id: Q3
+      criterion: "source_url 不可再访问（采集复核时 HTTP 404/410/无法解析——复核动作由人工触发，判定字段为 check_url_accessible=false）"
+      check: "source_url_inaccessible"
+      reason_code: "source_url_inaccessible"
+    - id: Q4
+      criterion: >-
+        domain_slice 自报 "H3C-DIRECT-REAL" 但 hard-marker 校验失败：采集端
+        在 sample_ctx 传入 domain 治理对象（failures.jsonl 行级 "domain"，
+        scripts.collectors.domain_governance.H3CDomainMeta.to_dict() 形态）
+        时，validate_domain_slice(domain) 报错且 domain_slice =
+        "H3C-DIRECT-REAL" → 强制 quarantine。对应 H3C-Specific Pilot
+        Kickoff（docs/H3C-specific-pilot-kickoff.md）W2 验收原文
+        "H3C-DIRECT-REAL requires at least one hard H3C marker" 的 admission
+        层机器执行——无 hard H3C marker（H3C / Comware / hp_comware /
+        h3c_open.comware / napalm-h3c-cw7 / pycw7 / VENDOR_NAME H3C /
+        H3C 语境下的 S 系设备型号）或 h3c_specificity_evidence 为空 /
+        占位串填充 device 字段的行不得自动收录。domain 未提供（None）时
+        本判据不触发（既有采集链路零变化）
+      # W2.1（外审指令第二项）：Q4 拆为 Q4a（structural）/ Q4b（slice
+      # authenticity）两个独立 reason_code，不再复用 h3c_marker_gate_fail
+      # （该码保留为 W2 v1 历史兼容）；implementation = validate_domain_slice_layered。
+      check: "validate_domain_slice_layered"
+      # 复合实现按错误类别二选一产出：Layer A → domain_metadata_invalid；
+      # Layer B → domain_slice_authenticity_fail（两条独立 reason_code）。
+      reason_code: "domain_metadata_invalid"
+      reason_code_alt: "domain_slice_authenticity_fail"
+
+# ---------------------------------------------------------------------
+# 3. discard —— 不入库（任一命中即 discard；幂等复用不是 discard：
+#    同 original_hash 再次采集 = 复用既有 sample，不产生重复行）
+# ---------------------------------------------------------------------
+discard:
+  any_of:
+    - id: D1
+      criterion: "无错误内容：failure_state.syslog_excerpt 与 assertion 均无错误类语义（纯讨论/无日志/公告类文本）"
+      check: "no_error_content"
+      reason_code: "no_error_content"
+    - id: D2
+      criterion: "纯 feature request / 文档类 issue：文本含 feature request/documentation 请求语义且无任何失败记录（采集器语义门槛上游已过滤一层，本条为最后防线）"
+      check: "feature_request_or_docs"
+      reason_code: "feature_request_or_docs"
+    - id: D3
+      criterion: >-
+        重复 original_hash：该 artifact 已在 dataset/收录流中存在且此前已
+        判定过——幂等复用既有结果而非重复入库（重复行的 sample_id 必然
+        相同，无信息增量）。注意：这是"复用"不是"淘汰"——本判据的语义是
+        采集端跳过重复采集，dataset 内容不变
+      check: "duplicate_original_hash"
+      reason_code: "duplicate_original_hash"
+
+# ---------------------------------------------------------------------
+# 4. 优先级与互斥（实现必须遵守）
+# ---------------------------------------------------------------------
+precedence:
+  - "判定顺序固定：discard > quarantine > admit（先查 discard 判据，再查 quarantine，最后查 admit）"
+  - "每个 sample 恰好得到一个分类；分类由判据机械推导，禁止人工改判 admission 结果（人工复核 quarantine 的处置是独立动作，记录进 lineage，不改写原判定事件）"
+  - "admit 的 all_of 有一条不满足且未命中 quarantine/discard 判据时 → 归 quarantine（保守缺省：宁可复核不可静默入库）；该情形 lineage 事件的 reason 取 'A-missing:<缺失字段列表>'（criterion 前缀 A-missing 由本条声明，缺失字段名取 evidence_required_nonempty 的字段名）"
+
+# ---------------------------------------------------------------------
+# 5. 版本化
+# ---------------------------------------------------------------------
+versioning:
+  rule: >-
+    本文件（v1）自首次正式采集起冻结；冻结后任何修改 = 新文件
+    admission-policy-v2.yaml。metadata.json 若新增 admission_policy_version
+    字段则必须与本文件 admission_policy_version 一致。
+  binding:
+    - "lineage.jsonl 的 sample_admitted/sample_rejected 事件 detail.admission_reason 必须取本文件给出的 reason_code 闭集"
+    - "scripts/collectors/admission.py::admit 是本文件的唯一实现；测试
+      tests/test_pilot0.py 逐判据覆盖正反例"

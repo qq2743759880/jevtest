@@ -1,0 +1,666 @@
+{
+  "$defs": {
+    "AttemptRecordV1": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "enum": [
+            "rule",
+            "jev",
+            "llm",
+            "human"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "attempt_index": {
+          "minimum": 1,
+          "title": "Attempt Index",
+          "type": "integer"
+        },
+        "invoked": {
+          "title": "Invoked",
+          "type": "boolean"
+        },
+        "provider_mock": {
+          "title": "Provider Mock",
+          "type": "boolean"
+        },
+        "provider_id": {
+          "minLength": 1,
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "output_schema_version": {
+          "default": "triage-result-v1",
+          "minLength": 1,
+          "title": "Output Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Tokens"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost"
+        },
+        "cost_currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Currency"
+        },
+        "pricing_status": {
+          "enum": [
+            "no_external_cost",
+            "mock",
+            "known",
+            "unknown"
+          ],
+          "title": "Pricing Status",
+          "type": "string"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "error_summary": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Summary"
+        }
+      },
+      "required": [
+        "stage",
+        "attempt_index",
+        "invoked",
+        "provider_mock",
+        "provider_id",
+        "status",
+        "latency_ms",
+        "pricing_status"
+      ],
+      "title": "AttemptRecordV1",
+      "type": "object"
+    },
+    "EvidenceRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_id": {
+          "minLength": 1,
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "field_path": {
+          "minLength": 1,
+          "title": "Field Path",
+          "type": "string"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "capture_scope": {
+          "enum": [
+            "submitted_field",
+            "provided_excerpt",
+            "source_artifact"
+          ],
+          "title": "Capture Scope",
+          "type": "string"
+        },
+        "evidence_kind": {
+          "enum": [
+            "observed",
+            "derived",
+            "model_output"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        },
+        "start_offset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Offset"
+        },
+        "end_offset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Offset"
+        },
+        "artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Id"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "field_path",
+        "content_sha256",
+        "capture_scope",
+        "evidence_kind"
+      ],
+      "title": "EvidenceRefV1",
+      "type": "object"
+    },
+    "RouteStepV1": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "enum": [
+            "rule",
+            "jev",
+            "llm",
+            "human"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "attempts": {
+          "minimum": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "provider_mock": {
+          "title": "Provider Mock",
+          "type": "boolean"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        }
+      },
+      "required": [
+        "stage",
+        "status",
+        "attempts",
+        "provider_mock"
+      ],
+      "title": "RouteStepV1",
+      "type": "object"
+    },
+    "TriageResult": {
+      "description": "四臂统一输出（PRD §10.1 三问契约）。所有臂实现 predict(FailureState) -> TriageResult。",
+      "properties": {
+        "category": {
+          "description": "Q1 失败类别（裁定 4：M3 前冻结）",
+          "enum": [
+            "PRODUCT_DEFECT",
+            "TEST_SCRIPT",
+            "ENVIRONMENT",
+            "CONFIGURATION",
+            "FLAKY",
+            "UNKNOWN"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "action": {
+          "description": "Q2 下一步动作（裁定 4：M3 前冻结）",
+          "enum": [
+            "RERUN",
+            "COLLECT_MORE_LOGS",
+            "CHECK_ENVIRONMENT",
+            "ASSIGN_TEST_OWNER",
+            "ASSIGN_PRODUCT_DEVELOPER",
+            "HUMAN_TRIAGE"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "priority": {
+          "description": "Q3 优先级，语义见 PRD 裁定 5（5=疑似阻断主干回归的产品缺陷 … 1=疑似 flaky）；决定“谁先看到”而非“谁先修”",
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "confidence": {
+          "description": "消费方=漏斗路由器；阈值是策略，由调用方代码持有（官方语义）。Jev 臂此字段承载 Probs[Value]（正确概率），分布尖锐度放 confidence_sharpness",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reason": {
+          "description": "人可读依据摘要。Rule 臂必须含规则 ID+触发字段值；缺失或空的 reason 视为无效输出，路由器按 UNKNOWN+HUMAN_TRIAGE 兜底",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "probs": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "可选：逐选项概率分布（Jev Choice/Score 原生返回）",
+          "title": "Probs"
+        },
+        "confidence_sharpness": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "可选：Jev Confidence 原值（分布尖锐度，非校准概率）——与 confidence 分字段承载，禁止混用",
+          "title": "Confidence Sharpness"
+        },
+        "routing_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "可选（Cascade 臂）：实际走过的路由，如 rule|jev|llm|human",
+          "title": "Routing Path"
+        }
+      },
+      "required": [
+        "category",
+        "action",
+        "priority",
+        "confidence",
+        "reason"
+      ],
+      "title": "TriageResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "triage-envelope-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "result_version": {
+      "minLength": 1,
+      "title": "Result Version",
+      "type": "string"
+    },
+    "created_at": {
+      "minLength": 1,
+      "title": "Created At",
+      "type": "string"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "input_projection_version": {
+      "minLength": 1,
+      "title": "Input Projection Version",
+      "type": "string"
+    },
+    "projection_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Projection Hash",
+      "type": "string"
+    },
+    "policy_id": {
+      "minLength": 1,
+      "title": "Policy Id",
+      "type": "string"
+    },
+    "policy_version": {
+      "minLength": 1,
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "execution_mode": {
+      "enum": [
+        "offline",
+        "live"
+      ],
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "run_purpose": {
+      "enum": [
+        "demo",
+        "advisory",
+        "synthetic_eval",
+        "real_exploratory",
+        "formal_eval"
+      ],
+      "title": "Run Purpose",
+      "type": "string"
+    },
+    "run_status": {
+      "enum": [
+        "result_ready",
+        "degraded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "Run Status",
+      "type": "string"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TriageResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "route_steps": {
+      "items": {
+        "$ref": "#/$defs/RouteStepV1"
+      },
+      "title": "Route Steps",
+      "type": "array"
+    },
+    "terminal_stage": {
+      "anyOf": [
+        {
+          "enum": [
+            "rule",
+            "jev",
+            "llm",
+            "human"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Terminal Stage"
+    },
+    "attempts": {
+      "items": {
+        "$ref": "#/$defs/AttemptRecordV1"
+      },
+      "title": "Attempts",
+      "type": "array"
+    },
+    "evidence_refs": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRefV1"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "missing_evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Evidence",
+      "type": "array"
+    },
+    "total_latency_ms": {
+      "minimum": 0,
+      "title": "Total Latency Ms",
+      "type": "number"
+    },
+    "total_cost": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Total Cost"
+    },
+    "cost_currency": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Currency"
+    },
+    "pricing_status": {
+      "enum": [
+        "no_external_cost",
+        "mock",
+        "known",
+        "unknown"
+      ],
+      "title": "Pricing Status",
+      "type": "string"
+    },
+    "requires_human_review": {
+      "title": "Requires Human Review",
+      "type": "boolean"
+    },
+    "review_status": {
+      "enum": [
+        "not_requested",
+        "pending",
+        "accepted",
+        "corrected",
+        "deferred"
+      ],
+      "title": "Review Status",
+      "type": "string"
+    },
+    "delivery_status": {
+      "enum": [
+        "not_requested",
+        "pending",
+        "local_queued",
+        "failed"
+      ],
+      "title": "Delivery Status",
+      "type": "string"
+    },
+    "resolution_status": {
+      "enum": [
+        "unknown",
+        "open",
+        "resolved"
+      ],
+      "title": "Resolution Status",
+      "type": "string"
+    },
+    "local_handoff_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Local Handoff Id"
+    }
+  },
+  "required": [
+    "schema_version",
+    "request_id",
+    "result_version",
+    "created_at",
+    "input_hash",
+    "input_projection_version",
+    "projection_hash",
+    "policy_id",
+    "policy_version",
+    "execution_mode",
+    "run_purpose",
+    "run_status",
+    "route_steps",
+    "attempts",
+    "evidence_refs",
+    "missing_evidence",
+    "total_latency_ms",
+    "pricing_status",
+    "requires_human_review",
+    "review_status",
+    "delivery_status",
+    "resolution_status"
+  ],
+  "title": "TriageEnvelopeV1",
+  "type": "object"
+}
